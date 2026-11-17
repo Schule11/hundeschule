@@ -3,12 +3,12 @@
 import { h, mount } from '../ui.js';
 import { isIOS, isStandalone } from '../ui.js';
 import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, isOverdue } from '../data.js';
-import { formatMoney, formatSigned, formatProfit } from '../format.js';
+import { formatMoney } from '../format.js';
 import { showBookings } from './bookings.js';
 import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
 import { doExport } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
-import { bookingRow } from './components.js';
+import { bookingRow, pageHeader } from './components.js';
 
 let selectedYear = new Date().getFullYear();
 
@@ -36,6 +36,13 @@ export function render(root) {
   }, years.map((y) => h('option', { value: String(y) }, String(y))));
   yearSel.value = String(selectedYear);
 
+  // Ab 10.000 € zeigt die Übersicht volle Euro (genaue Beträge: Auswertung)
+  const big = [monthSums, yearSums].some((x) => Math.max(Math.abs(x.income), Math.abs(x.expense), Math.abs(x.profit)) >= 1000000);
+  const eur0 = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const money = (c) => (big ? eur0.format(Math.round(c / 100)) : formatMoney(c));
+  const signed = (c, type) => (type === 'income' ? '+' : '\u2212') + money(Math.abs(c));
+  const profit = (c) => (c < 0 ? '\u2212' + money(-c) : money(c));
+
   const kpiRow = (label, key, m, y, cls = '') => [
     h('span', { class: 'kpi-label' }, label),
     h('span', { class: `kpi-val ${cls}`, 'data-k': `month-${key}` }, m),
@@ -43,7 +50,7 @@ export function render(root) {
   ];
 
   mount(root,
-    h('h1', { class: 'page-title' }, 'Übersicht'),
+    pageHeader('Übersicht'),
     installHint(),
 
     // Kennzahlen: aktueller Monat und gewähltes Jahr nebeneinander
@@ -52,10 +59,11 @@ export function render(root) {
         h('span'),
         h('span', { class: 'kpi-head' }, monthName),
         h('span', { class: 'kpi-head' }, yearSel),
-        kpiRow('Einnahmen', 'income', formatSigned(monthSums.income, 'income'), formatSigned(yearSums.income, 'income'), 'pos'),
-        kpiRow('Ausgaben', 'expense', formatSigned(monthSums.expense, 'expense'), formatSigned(yearSums.expense, 'expense'), 'neg'),
+        kpiRow('Einnahmen', 'income', signed(monthSums.income, 'income'), signed(yearSums.income, 'income'), 'pos'),
+        kpiRow('Ausgaben', 'expense', signed(monthSums.expense, 'expense'), signed(yearSums.expense, 'expense'), 'neg'),
         h('span', { class: 'kpi-sep' }),
-        kpiRow('Gewinn', 'profit', formatProfit(monthSums.profit), formatProfit(yearSums.profit), 'kpi-total'))),
+        kpiRow('Gewinn', 'profit', profit(monthSums.profit), profit(yearSums.profit), 'kpi-total')),
+      big ? h('p', { class: 'kpi-note' }, 'Auf volle Euro gerundet – genaue Beträge in der Auswertung.') : null),
 
     openPayments(),
     limitNotices(),
@@ -71,7 +79,24 @@ export function render(root) {
   );
   // Verlust rot färben
   for (const el of root.querySelectorAll('.kpi-total')) if (el.textContent.startsWith('\u2212')) el.classList.add('neg');
+  fitKpi(root.querySelector('.kpi-grid'));
 }
+
+/**
+ * Große Beträge (z. B. über 10.000 €) passen nicht immer in die Spalten.
+ * Dann werden alle Zahlen der Karte gleichmäßig etwas kleiner.
+ */
+function fitKpi(grid) {
+  if (!grid) return;
+  grid.style.removeProperty('--kpi-scale');
+  let scale = 1;
+  for (const el of grid.querySelectorAll('.kpi-val')) {
+    if (el.scrollWidth > el.clientWidth) scale = Math.min(scale, el.clientWidth / el.scrollWidth);
+  }
+  if (scale < 1) grid.style.setProperty('--kpi-scale', Math.max(0.55, scale * 0.97).toFixed(3));
+}
+
+window.addEventListener('resize', () => fitKpi(document.querySelector('.kpi-grid')));
 
 function rerender(root) {
   root.replaceChildren();

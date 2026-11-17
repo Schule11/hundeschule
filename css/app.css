@@ -149,6 +149,18 @@ a { color: var(--accent-ink); }
   margin: 8px 4px 20px;
 }
 
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 20px;
+}
+
+.page-head .page-title { margin: 0 4px; min-width: 0; }
+.settings-btn { flex: none; text-decoration: none; }
+.settings-btn[aria-current="page"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
 .section-title {
   font-size: 15px;
   font-weight: 650;
@@ -199,7 +211,7 @@ a { color: var(--accent-ink); }
 #tabs {
   pointer-events: auto;
   flex: 1;
-  max-width: 520px;
+  max-width: 420px;
   height: var(--nav-h);
   display: flex;
   padding: 4px;
@@ -222,9 +234,9 @@ a { color: var(--accent-ink); }
   border-radius: 999px;
   color: var(--text);
   text-decoration: none;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
   touch-action: manipulation;
   transition: background 0.2s, color 0.2s;
 }
@@ -295,7 +307,7 @@ a { color: var(--accent-ink); }
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: auto 1fr 1fr;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 12px;
   row-gap: 10px;
   align-items: baseline;
@@ -310,11 +322,19 @@ a { color: var(--accent-ink); }
   white-space: nowrap;
 }
 
-.kpi-label { color: var(--muted); font-size: 16.5px; }
-.kpi-val { justify-self: end; font-size: 16.5px; font-weight: 650; white-space: nowrap; }
+.kpi-label { color: var(--muted); font-size: 16.5px; white-space: nowrap; }
+.kpi-val {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  font-size: calc(16.5px * var(--kpi-scale, 1));
+  font-weight: 650;
+  white-space: nowrap;
+}
 .kpi-sep { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 2px 0; }
+.kpi-note { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); text-align: right; }
 .kpi-grid .kpi-label:nth-last-child(3) { color: var(--text); font-weight: 650; }
-.kpi-total { font-size: 21px; font-weight: 750; }
+.kpi-val.kpi-total { font-size: calc(21px * var(--kpi-scale, 1)); font-weight: 750; }
 
 .kpi-year {
   -webkit-appearance: none;

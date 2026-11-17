@@ -4,7 +4,7 @@ import { h, mount } from '../ui.js';
 import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears, contactById, contactLabel, isOpen, sumOpen } from '../data.js';
 import { paymentLabel } from '../defaults.js';
 import { formatSigned, formatMoney, formatDate, centsToInput, monthLabel, normalizeText } from '../format.js';
-import { bookingRow, yearSelect } from './components.js';
+import { bookingRow, yearSelect, pageHeader } from './components.js';
 
 // Filter bleiben erhalten, solange die App offen ist
 const filters = {
@@ -180,7 +180,7 @@ export function render(root) {
 
   fillCategories();
   mount(root,
-    h('h1', { class: 'page-title' }, 'Buchungen'),
+    pageHeader('Buchungen'),
     h('div', { class: 'filters' },
       search,
       typeFilter,

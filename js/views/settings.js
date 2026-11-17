@@ -11,6 +11,7 @@ import { createBackupFile, markBackupDone, readBackupFile, applyBackup } from '.
 import { saveFile, prefersShare } from '../files.js';
 import { smallBusinessStatus } from '../notices.js';
 import { openCategoryList } from './categories.js';
+import { pageHeader } from './components.js';
 import { openContactList } from './contacts.js';
 import { badgeSupported, enableBadge } from '../badge.js';
 
@@ -258,7 +259,7 @@ export function render(root) {
   const limits = smallBusinessStatus();
 
   mount(root,
-    h('h1', { class: 'page-title' }, 'Einstellungen'),
+    pageHeader('Einstellungen', { active: true }),
 
     h('h2', { class: 'section-title' }, 'Hundeschule'),
     h('div', { class: 'rows group' },

@@ -6,7 +6,7 @@ import { formatMoney, formatSigned, formatProfit, formatKm, MONTHS } from '../fo
 import { yearReport } from '../yearReport.js';
 import { bookingsCsv, summaryCsv, reportPdf, preloadLogo } from '../exports.js';
 import { saveFile, prefersShare } from '../files.js';
-import { statBlock, yearSelect } from './components.js';
+import { statBlock, yearSelect, pageHeader } from './components.js';
 import { showBookings } from './bookings.js';
 
 let selectedYear = defaultYear();
@@ -46,7 +46,7 @@ export function render(root) {
 
   if (!r.bookings.length) {
     mount(root,
-      h('h1', { class: 'page-title' }, 'Auswertung'),
+      pageHeader('Auswertung'),
       head,
       openNote,
       h('div', { class: 'empty' },
@@ -117,7 +117,7 @@ export function render(root) {
   }, iconName ? icon(iconName) : null, label);
 
   mount(root,
-    h('h1', { class: 'page-title' }, 'Auswertung'),
+    pageHeader('Auswertung'),
     head,
     openNote,
     h('section', { class: 'card export-card', 'aria-label': 'Export' },

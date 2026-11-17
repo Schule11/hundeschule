@@ -184,7 +184,7 @@ export function openBookingForm(existing = null) {
 
       personWrap,
 
-      h('label', { class: 'lbl', for: 'desc' }, 'Beschreibung'),
+      h('label', { class: 'lbl', for: 'desc' }, 'Beschreibung (optional)'),
       descInput,
 
       payWrap,

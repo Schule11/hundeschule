@@ -30,10 +30,11 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 | Bereich | Was du dort machst |
 |---|---|
 | **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Betrag, Kategorie, Kund:in, Beschreibung, Zahlung, Datum, Belegfoto. Oben rechts ✓ speichert, ✕ bricht ab. |
+| **Menüleiste unten** | Übersicht, Buchungen, Auswertung |
 | **Übersicht** | Offene Zahlungen zum Abhaken, Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
-| **Einstellungen** | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
+| **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
 
 **Fahrtkosten:** Wählst du die Kategorie „Fahrtkosten“, gibst du statt eines Betrags die gefahrenen Kilometer ein.
 Die App rechnet mit der Kilometerpauschale aus den Einstellungen (Standard 0,30 €/km).
