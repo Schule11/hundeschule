@@ -27,13 +27,13 @@ export function bookingRow(b) {
 }
 
 /** Einnahmen / Ausgaben / Gewinn als Block */
-export function statBlock(sums) {
+export function statBlock(sums, labels = {}) {
   return [
     h('div', { class: 'stat' },
-      h('span', { class: 'stat-label' }, 'Einnahmen'),
+      h('span', { class: 'stat-label' }, labels.income || 'Einnahmen'),
       h('span', { class: 'stat-value pos' }, formatSigned(sums.income, 'income'))),
     h('div', { class: 'stat' },
-      h('span', { class: 'stat-label' }, 'Ausgaben'),
+      h('span', { class: 'stat-label' }, labels.expense || 'Ausgaben'),
       h('span', { class: 'stat-value neg' }, formatSigned(sums.expense, 'expense'))),
     h('div', { class: 'stat total' },
       h('span', { class: 'stat-label' }, sums.profit < 0 ? 'Verlust' : 'Gewinn'),

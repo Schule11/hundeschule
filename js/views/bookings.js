@@ -14,6 +14,12 @@ const filters = {
   q: '',
 };
 
+/** Liste mit Filter öffnen (z. B. aus der Auswertung: "alle Buchungen dieser Kategorie") */
+export function showBookings({ year = 'all', type = 'all', category = 'all' } = {}) {
+  Object.assign(filters, { year, type, category, q: '' });
+  location.hash = '#/buchungen';
+}
+
 export function render(root) {
   const results = h('div', { 'aria-live': 'polite' });
 

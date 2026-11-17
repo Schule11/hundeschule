@@ -65,28 +65,6 @@ export async function createBackupFile() {
   return { file, counts: { bookings: state.bookings.length, receipts: receipts.length } };
 }
 
-/** Kann das Gerät die Datei über "Teilen" weitergeben (iPhone: "In Dateien sichern")? */
-export function canShareFile(file) {
-  try {
-    return !!(navigator.canShare && navigator.canShare({ files: [file] }));
-  } catch {
-    return false;
-  }
-}
-
-/** Startet einen normalen Download (Laptop). */
-export function downloadFile(file) {
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.rel = 'noopener';
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-}
-
 export async function markBackupDone() {
   await updateLocal({ lastBackupAt: nowISO(), bookingsAtLastBackup: state.bookings.length });
 }

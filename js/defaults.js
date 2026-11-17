@@ -34,7 +34,7 @@ export function defaultCategoryRecords() {
     key: c.key,
     type: c.type,
     name: c.name,
-    euer: '',              // Zeile der Anlage EÜR (wird in Schritt 2 vorbelegt)
+    euer: '',              // Posten der Anlage EÜR; leer = Standard (siehe euerPostenFor)
     mileage: !!c.mileage,  // Fahrtkosten: Betrag = km × Pauschale (Schritt 3)
     order: i,
     updatedAt: EPOCH,
@@ -53,6 +53,54 @@ export const DEFAULT_SETTINGS = {
   theme: 'system',                 // 'system' | 'light' | 'dark'
   updatedAt: EPOCH,
 };
+
+// ---------- Anlage EÜR ----------
+//
+// Bezeichnungen der Posten in der Anlage EÜR, in der Reihenfolge des Formulars.
+// Bewusst ohne Zeilennummern: Die ändern sich fast jedes Jahr, die Bezeichnungen
+// bleiben. Bitte vor der Abgabe mit dem aktuellen Formular abgleichen.
+
+export const EUER_INCOME = 'Betriebseinnahmen als umsatzsteuerlicher Kleinunternehmer';
+export const EUER_OTHER_EXPENSES = 'Übrige unbeschränkt abziehbare Betriebsausgaben';
+
+export const EUER_POSTEN = [
+  { type: 'income', name: EUER_INCOME },
+  { type: 'expense', name: 'Waren, Roh- und Hilfsstoffe einschließlich der Nebenkosten' },
+  { type: 'expense', name: 'Bezogene Fremdleistungen' },
+  { type: 'expense', name: 'Aufwendungen für geringwertige Wirtschaftsgüter' },
+  { type: 'expense', name: 'Miete/Pacht für Geschäftsräume und betrieblich genutzte Grundstücke' },
+  { type: 'expense', name: 'Aufwendungen für Telekommunikation (z. B. Telefon, Internet)' },
+  { type: 'expense', name: 'Übernachtungs- und Reisenebenkosten bei Geschäftsreisen' },
+  { type: 'expense', name: 'Fortbildungskosten (ohne Reisekosten)' },
+  { type: 'expense', name: 'Beiträge, Gebühren, Abgaben und Versicherungen (ohne solche für Gebäude und Kfz)' },
+  { type: 'expense', name: 'Werbekosten (z. B. Inserate, Werbespots, Plakate)' },
+  { type: 'expense', name: 'Fahrtkosten für nicht betriebliche Fahrzeuge (Nutzungseinlage)' },
+  { type: 'expense', name: EUER_OTHER_EXPENSES },
+];
+
+// Vorschlag je vorbelegter Kategorie (änderbar in den Einstellungen, Schritt 3)
+const EUER_DEFAULTS = {
+  platzmiete: 'Miete/Pacht für Geschäftsräume und betrieblich genutzte Grundstücke',
+  versicherungen: 'Beiträge, Gebühren, Abgaben und Versicherungen (ohne solche für Gebäude und Kfz)',
+  gebuehren: 'Beiträge, Gebühren, Abgaben und Versicherungen (ohne solche für Gebäude und Kfz)',
+  fortbildung: 'Fortbildungskosten (ohne Reisekosten)',
+  werbung: 'Werbekosten (z. B. Inserate, Werbespots, Plakate)',
+  telefon: 'Aufwendungen für Telekommunikation (z. B. Telefon, Internet)',
+  fahrtkosten: 'Fahrtkosten für nicht betriebliche Fahrzeuge (Nutzungseinlage)',
+};
+
+/** EÜR-Posten einer Kategorie: eigene Angabe, sonst Vorschlag, sonst Sammelposten */
+export function euerPostenFor(category) {
+  if (!category) return 'Nicht zugeordnet';
+  if (category.euer) return category.euer;
+  if (category.type === 'income') return EUER_INCOME;
+  return EUER_DEFAULTS[category.key] || EUER_OTHER_EXPENSES;
+}
+
+export function euerOrder(name) {
+  const i = EUER_POSTEN.findIndex((p) => p.name === name);
+  return i < 0 ? 999 : i;
+}
 
 export const PAYMENT_METHODS = [
   { value: 'cash', label: 'Bar' },

@@ -1,13 +1,12 @@
 // Bildschirm "Einstellungen" – in Schritt 1: Datensicherung und App-Infos.
 // Kategorien, Kilometerpauschale, Grenzwerte und Design folgen in Schritt 3.
 
-import { h, mount, icon, toast, choiceDialog, confirmDialog, alertDialog, isTouchDevice } from '../ui.js';
+import { h, mount, icon, toast, choiceDialog, confirmDialog, alertDialog } from '../ui.js';
 import { state, storageIsPersistent } from '../data.js';
 import { formatDateTime, formatSize } from '../format.js';
 import { APP_VERSION, APP_STAGE } from '../config.js';
-import {
-  createBackupFile, canShareFile, downloadFile, markBackupDone, readBackupFile, applyBackup,
-} from '../backup.js';
+import { createBackupFile, markBackupDone, readBackupFile, applyBackup } from '../backup.js';
+import { saveFile, prefersShare } from '../files.js';
 
 export function render(root) {
   const lastBackup = state.local.lastBackupAt;
@@ -66,7 +65,7 @@ async function doExport(btn) {
   btn.disabled = true;
   try {
     const { file, counts } = await createBackupFile();
-    const share = canShareFile(file) && isTouchDevice();
+    const share = prefersShare(file);
     const text = h('div', null,
       h('p', null, `${counts.bookings} Buchungen und ${counts.receipts} Belegfotos · ${formatSize(file.size)}`),
       h('p', null, share
@@ -81,7 +80,11 @@ async function doExport(btn) {
           label: share ? 'Sichern …' : 'Herunterladen',
           kind: 'primary',
           // Muss direkt im Tipp passieren, sonst blockiert das iPhone das Teilen
-          onClick: () => deliver(file, share),
+          onClick: () => saveFile(file, (ok) => {
+            if (!ok) return;
+            markBackupDone();
+            toast(share ? 'Backup gesichert' : 'Backup heruntergeladen');
+          }),
         },
         { label: 'Abbrechen' },
       ],
@@ -91,22 +94,6 @@ async function doExport(btn) {
     alertDialog({ title: 'Backup fehlgeschlagen', text: err.message || String(err) });
   } finally {
     btn.disabled = false;
-  }
-}
-
-function deliver(file, share) {
-  if (share) {
-    navigator.share({ files: [file], title: file.name })
-      .then(() => { markBackupDone(); toast('Backup gesichert'); })
-      .catch((err) => {
-        if (err?.name === 'AbortError') return; // abgebrochen
-        downloadFile(file);
-        markBackupDone();
-      });
-  } else {
-    downloadFile(file);
-    markBackupDone();
-    toast('Backup heruntergeladen');
   }
 }
 
