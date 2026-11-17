@@ -29,11 +29,11 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 
 | Bereich | Was du dort machst |
 |---|---|
-| **+ (großer Knopf)** | Neue Buchung: Betrag, Kategorie, optional Kund:in, Beschreibung, Datum, Zahlungsart, Belegfoto |
+| **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Betrag, Kategorie, Kund:in, Beschreibung, Zahlung, Datum, Belegfoto. Oben rechts ✓ speichert, ✕ bricht ab. |
 | **Übersicht** | Offene Zahlungen zum Abhaken, Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
-| **Einstellungen** | Name, Kategorien, Kund:innen, Kilometerpauschale, Kleinunternehmergrenzen, Backup, hell/dunkel |
+| **Einstellungen** | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
 
 **Fahrtkosten:** Wählst du die Kategorie „Fahrtkosten“, gibst du statt eines Betrags die gefahrenen Kilometer ein.
 Die App rechnet mit der Kilometerpauschale aus den Einstellungen (Standard 0,30 €/km).
@@ -45,7 +45,8 @@ Ein neuer Name wird beim Speichern automatisch angelegt. Unter *Einstellungen �
 ändern, einen Hundenamen ergänzen (wird mit angezeigt und ist durchsuchbar) und alle Buchungen einer Person ansehen.
 Die *Auswertung* zeigt außerdem „Einnahmen nach Kund:in“.
 
-**Offene Zahlungen:** Bei einer Einnahme wählst du **„Bezahlt“** oder **„Noch offen“**. Offene Einnahmen
+**Offene Zahlungen:** Bei einer Einnahme wählst du unter **„Zahlung“** die Zahlungsart (Bar, Überweisung, PayPal)
+oder **„Noch offen“**. Ohne Auswahl gilt die Einnahme als bezahlt. Offene Einnahmen
 stehen ganz oben auf der *Übersicht* unter „Offene Zahlungen“. Sobald bezahlt wurde, tippst du auf den **Kreis**
 („Rückgängig“ ist kurz möglich). Ist eine Zahlung seit **14 Tagen** offen (einstellbar unter *Einstellungen →
 Offene Zahlungen*), wird sie **rot** markiert. Optional zeigt das **App-Symbol** auf dem Home-Bildschirm die Zahl
@@ -95,7 +96,7 @@ dann unter *Auswertung* das PDF erstellen. Das Handy bleibt das Hauptgerät.
 4. **PDF erstellen** gibt dir eine Jahresübersicht mit allen Buchungen zum Ablegen oder für die Steuerberatung.
    **CSV** öffnet sich direkt in Excel oder Numbers.
 
-Welche Kategorie zu welchem Posten gehört, kannst du unter *Einstellungen → Kategorien* ändern.
+Welche Kategorie zu welchem Posten gehört, kannst du unter *Einstellungen → Kategorien Einnahmen/Ausgaben* ändern.
 
 > Die App ersetzt keine Steuerberatung. Bitte prüfe die Zuordnung vor der Abgabe mit dem aktuellen Formular.
 > Hinweise: Anschaffungen über 800 € netto (z. B. Geräte) müssen meist über mehrere Jahre abgeschrieben werden;

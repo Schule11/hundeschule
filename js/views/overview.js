@@ -1,21 +1,20 @@
-// Bildschirm "Übersicht": aktueller Monat, gewähltes Jahr, zuletzt erfasst.
+// Bildschirm "Übersicht": Kennzahlen (Monat | Jahr), offene Zahlungen, Hinweise, zuletzt erfasst.
 
 import { h, mount } from '../ui.js';
 import { isIOS, isStandalone } from '../ui.js';
 import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, isOverdue } from '../data.js';
-import { formatMoney } from '../format.js';
+import { formatMoney, formatSigned, formatProfit } from '../format.js';
 import { showBookings } from './bookings.js';
 import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
 import { doExport } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
-import { bookingRow, statBlock, yearSelect } from './components.js';
+import { bookingRow } from './components.js';
 
 let selectedYear = new Date().getFullYear();
 
 export function render(root) {
   const today = todayISO();
   const ym = today.slice(0, 7);
-  const monthName = `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
 
   const monthSums = sumBookings(state.bookings.filter((b) => b.date.startsWith(ym)));
 
@@ -25,25 +24,42 @@ export function render(root) {
 
   const recent = [...state.bookings]
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, 5);
+    .slice(0, 3);
+
+  // Monatsname; steht im Jahr ein anderes Jahr, zur Klarheit mit Jahreszahl
+  const curYear = Number(ym.slice(0, 4));
+  const monthName = MONTHS[Number(ym.slice(5, 7)) - 1] + (selectedYear !== curYear ? ` ${curYear}` : '');
+  const yearSel = h('select', {
+    class: 'kpi-year',
+    'aria-label': 'Jahr wählen',
+    onchange: (e) => { selectedYear = Number(e.target.value); rerender(root); },
+  }, years.map((y) => h('option', { value: String(y) }, String(y))));
+  yearSel.value = String(selectedYear);
+
+  const kpiRow = (label, key, m, y, cls = '') => [
+    h('span', { class: 'kpi-label' }, label),
+    h('span', { class: `kpi-val ${cls}`, 'data-k': `month-${key}` }, m),
+    h('span', { class: `kpi-val ${cls}`, 'data-k': `year-${key}` }, y),
+  ];
 
   mount(root,
     h('h1', { class: 'page-title' }, 'Übersicht'),
     installHint(),
+
+    // Kennzahlen: aktueller Monat und gewähltes Jahr nebeneinander
+    h('section', { class: 'card kpi', 'aria-label': 'Kennzahlen' },
+      h('div', { class: 'kpi-grid' },
+        h('span'),
+        h('span', { class: 'kpi-head' }, monthName),
+        h('span', { class: 'kpi-head' }, yearSel),
+        kpiRow('Einnahmen', 'income', formatSigned(monthSums.income, 'income'), formatSigned(yearSums.income, 'income'), 'pos'),
+        kpiRow('Ausgaben', 'expense', formatSigned(monthSums.expense, 'expense'), formatSigned(yearSums.expense, 'expense'), 'neg'),
+        h('span', { class: 'kpi-sep' }),
+        kpiRow('Gewinn', 'profit', formatProfit(monthSums.profit), formatProfit(yearSums.profit), 'kpi-total'))),
+
     openPayments(),
     limitNotices(),
     backupNotice(),
-
-    h('section', { class: 'card', 'aria-label': 'Aktueller Monat' },
-      h('div', { class: 'card-head' }, h('h2', { class: 'card-title' }, monthName)),
-      statBlock(monthSums)),
-
-    h('section', { class: 'card', 'aria-label': 'Jahr' },
-      h('div', { class: 'card-head' },
-        h('h2', { class: 'card-title' }, 'Jahr'),
-        h('div', { style: 'width: 130px' },
-          yearSelect(years, selectedYear, (v) => { selectedYear = Number(v); rerender(root); }))),
-      statBlock(yearSums)),
 
     h('h2', { class: 'section-title' }, 'Zuletzt erfasst'),
     recent.length
@@ -53,6 +69,8 @@ export function render(root) {
         h('strong', null, 'Noch nichts erfasst'),
         'Tippe unten rechts auf +, um die erste Buchung einzutragen.'),
   );
+  // Verlust rot färben
+  for (const el of root.querySelectorAll('.kpi-total')) if (el.textContent.startsWith('\u2212')) el.classList.add('neg');
 }
 
 function rerender(root) {

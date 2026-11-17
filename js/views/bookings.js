@@ -41,21 +41,21 @@ export function render(root) {
   if (filters.year !== 'all' && !years.includes(Number(filters.year))) filters.year = String(years[0]);
   const yearSel = yearSelect(years, filters.year, (v) => { filters.year = v; renderResults(); }, { withAll: true });
 
-  const typeSel = h('select', {
-    class: 'field',
-    'aria-label': 'Art',
-    onchange: (e) => {
-      filters.type = e.target.value;
-      if (filters.category !== 'all' && !matchesCategoryType(filters.category)) filters.category = 'all';
-      fillCategories();
-      renderResults();
-    },
-  },
-  h('option', { value: 'all' }, 'Alle'),
-  h('option', { value: 'income' }, 'Einnahmen'),
-  h('option', { value: 'expense' }, 'Ausgaben'),
-  h('option', { value: 'open' }, 'Offen'));
-  typeSel.value = filters.type;
+  // Art als Umschalter (statt Klappliste): ein Tipp, alles sichtbar
+  const typeFilter = h('div', { class: 'segmented segmented-4 type-filter', role: 'group', 'aria-label': 'Art' },
+    [['all', 'Alle'], ['income', 'Einnahmen'], ['expense', 'Ausgaben'], ['open', 'Offen']].map(([value, label]) =>
+      h('button', {
+        type: 'button',
+        'data-type': value,
+        'aria-pressed': String(filters.type === value),
+        onclick: () => {
+          filters.type = value;
+          for (const b of typeFilter.children) b.setAttribute('aria-pressed', String(b.dataset.type === value));
+          if (filters.category !== 'all' && !matchesCategoryType(filters.category)) filters.category = 'all';
+          fillCategories();
+          renderResults();
+        },
+      }, label)));
 
   const catSel = h('select', {
     class: 'field',
@@ -183,7 +183,8 @@ export function render(root) {
     h('h1', { class: 'page-title' }, 'Buchungen'),
     h('div', { class: 'filters' },
       search,
-      h('div', { class: 'filter-row' }, yearSel, typeSel, catSel),
+      typeFilter,
+      h('div', { class: 'filter-row' }, yearSel, catSel),
       personChip),
     results,
   );

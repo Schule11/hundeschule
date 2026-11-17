@@ -28,7 +28,7 @@ export function render(root) {
 
   const head = h('section', { class: 'card' },
     h('div', { class: 'card-head' },
-      h('h2', { class: 'card-title' }, `Ergebnis ${selectedYear}`),
+      h('h2', { class: 'card-title' }, 'Ergebnis'),
       h('div', { style: 'width: 130px' },
         yearSelect(years, selectedYear, (v) => { selectedYear = Number(v); rerender(); }))),
     statBlock(r.totals, { income: 'Betriebseinnahmen', expense: 'Betriebsausgaben' }));
@@ -58,8 +58,7 @@ export function render(root) {
   // --- Anlage EÜR ---
   const euer = h('section', { class: 'card' },
     h('p', { class: 'hint', style: 'margin-top: 0' },
-      'Diese Beträge überträgst du in die Anlage EÜR. Als Kleinunternehmer sind es Bruttobeträge – genau so, wie du bezahlt hast. '
-      + 'Die Zeilennummern ändern sich jährlich; im Formular und in ELSTER heißen die Posten so wie hier.'),
+      'Diese Bruttobeträge überträgst du in die Anlage EÜR. Die Posten heißen in ELSTER so wie hier (Zeilennummern ändern sich jährlich).'),
     r.posten.map((p) => h('div', { class: 'report-row' },
       h('div', { class: 'report-main' },
         h('div', { class: 'report-name' }, p.name),
@@ -101,7 +100,7 @@ export function render(root) {
   // --- Export ---
   const exportBtn = (label, iconName, make, primary = false) => h('button', {
     type: 'button',
-    class: `btn block${primary ? ' primary' : ''}`,
+    class: `btn block${primary ? ' primary' : ' btn-small'}`,
     onclick: () => {
       // Datei sofort im Tipp erzeugen und weitergeben (wichtig fürs iPhone)
       let file;
@@ -115,12 +114,19 @@ export function render(root) {
       const share = prefersShare(file);
       saveFile(file, (ok) => { if (ok && !share) toast(`${file.name} heruntergeladen`); });
     },
-  }, icon(iconName), label);
+  }, iconName ? icon(iconName) : null, label);
 
   mount(root,
     h('h1', { class: 'page-title' }, 'Auswertung'),
     head,
     openNote,
+    h('section', { class: 'card export-card', 'aria-label': 'Export' },
+      exportBtn('PDF erstellen', 'download', reportPdf, true),
+      h('div', { class: 'btn-pair' },
+        exportBtn('Buchungen (CSV)', null, bookingsCsv),
+        exportBtn('Summen (CSV)', null, summaryCsv)),
+      h('p', { class: 'hint', style: 'margin-bottom: 0' },
+        'PDF: Jahresübersicht mit allen Buchungen – zum Ablegen oder für die Steuerberatung. CSV: für Excel oder Numbers.')),
     h('h2', { class: 'section-title' }, 'Für die Anlage EÜR'),
     euer,
     r.categories.income.length ? [h('h2', { class: 'section-title' }, 'Einnahmen nach Kategorie'), catCard(r.categories.income)] : null,
@@ -140,15 +146,5 @@ export function render(root) {
     ] : null,
     h('h2', { class: 'section-title' }, 'Monate'),
     monthTable,
-    h('h2', { class: 'section-title' }, 'Export'),
-    h('section', { class: 'card' },
-      h('div', { class: 'btn-row' },
-        exportBtn('PDF erstellen', 'download', reportPdf, true),
-        exportBtn('Buchungen als CSV', 'download', bookingsCsv),
-        exportBtn('Summen als CSV', 'download', summaryCsv)),
-      h('p', { class: 'hint' },
-        'PDF: Jahresübersicht mit allen Buchungen – zum Ablegen oder für die Steuerberatung. '
-        + 'CSV: zum Öffnen in Excel oder Numbers. Auf dem iPhone öffnet sich das Teilen-Menü '
-        + '(„In Dateien sichern“, Mail …).')),
   );
 }

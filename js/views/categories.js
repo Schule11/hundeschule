@@ -10,12 +10,12 @@ const TYPE_LABEL = { income: 'Einnahmen', expense: 'Ausgaben' };
 const CUSTOM = '__custom__';
 
 /** Liste der Kategorien eines Typs */
-export function openCategoryList(type) {
+export function openCategoryList(type, onClose = null) {
   const list = h('div', { class: 'rows' });
   let unsubscribe = null;
   const { body } = openSheet({
-    title: `Kategorien: ${TYPE_LABEL[type]}`,
-    onClose: () => unsubscribe?.(),
+    title: `Kategorien ${TYPE_LABEL[type]}`,
+    onClose: () => { unsubscribe?.(); onClose?.(); },
   });
 
   function render() {
@@ -72,8 +72,8 @@ export function openCategoryEditor({ type, category = null }) {
 
   const { body, close } = openSheet({
     title: isNew ? 'Neue Kategorie' : 'Kategorie bearbeiten',
-    leftLabel: 'Abbrechen',
-    right: h('button', { type: 'button', class: 'btn-text', onclick: () => save() }, 'Sichern'),
+    cancel: true,
+    onConfirm: () => save(),
   });
 
   async function save() {

@@ -7,10 +7,10 @@ import {
 import { formatSigned, formatMoney, normalizeText } from '../format.js';
 import { showBookings } from './bookings.js';
 
-export function openContactList() {
+export function openContactList(onClose = null) {
   const list = h('div');
   let unsubscribe = null;
-  const { body, close } = openSheet({ title: 'Kund:innen', onClose: () => unsubscribe?.() });
+  const { body, close } = openSheet({ title: 'Kund:innen', onClose: () => { unsubscribe?.(); onClose?.(); } });
 
   const search = h('input', {
     class: 'field field-search', type: 'search', placeholder: 'Name oder Hund suchen …', autocomplete: 'off',
@@ -70,8 +70,8 @@ export function openContactEditor(contact = null, closeList = null) {
 
   const { body, close } = openSheet({
     title: isNew ? 'Neue Kund:in' : 'Kund:in bearbeiten',
-    leftLabel: 'Abbrechen',
-    right: h('button', { type: 'button', class: 'btn-text', onclick: () => save() }, 'Sichern'),
+    cancel: true,
+    onConfirm: () => save(),
   });
 
   async function save() {

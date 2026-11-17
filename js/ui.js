@@ -41,6 +41,8 @@ const ICONS = {
   camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   upload: '<path d="M12 20V9M7 14l5-5 5 5M5 4h14"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
@@ -218,10 +220,11 @@ export function applyTheme() {
 // ---------- Vollbild-Ebene (z. B. Kategorien bearbeiten) ----------
 
 /**
- * Öffnet eine Vollbild-Ebene mit Titelleiste. Gibt { sheet, body, close } zurück.
- * leftLabel: Beschriftung des Schließen-Knopfs; right: optionaler Knopf rechts.
+ * Öffnet eine Vollbild-Ebene mit Titelleiste (runde Knöpfe wie in iOS).
+ * cancel: links ✕ statt ‹ ; onConfirm: rechts ein ✓-Knopf zum Speichern.
+ * Gibt { sheet, body, close } zurück.
  */
-export function openSheet({ title, leftLabel = 'Zurück', right = null, onClose = null }) {
+export function openSheet({ title, cancel = false, onConfirm = null, onClose = null }) {
   const body = h('div', { class: 'sheet-body' });
   const onKey = (e) => {
     if (e.key !== 'Escape' || document.querySelector('dialog[open], .viewer')) return;
@@ -229,6 +232,8 @@ export function openSheet({ title, leftLabel = 'Zurück', right = null, onClose 
     if (sheets[sheets.length - 1] === sheet) close();
   };
   const close = () => {
+    // Offenes Eingabefeld zuerst verlassen, damit es noch gespeichert wird
+    if (sheet.contains(document.activeElement)) document.activeElement.blur();
     document.removeEventListener('keydown', onKey);
     sheet.remove();
     if (!document.querySelector('.sheet')) document.body.classList.remove('sheet-open');
@@ -236,9 +241,12 @@ export function openSheet({ title, leftLabel = 'Zurück', right = null, onClose 
   };
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('header', { class: 'sheet-bar' },
-      h('button', { type: 'button', class: 'btn-text', onclick: close }, leftLabel),
+      h('button', { type: 'button', class: 'round-btn', 'aria-label': cancel ? 'Abbrechen' : 'Zurück', onclick: close },
+        icon(cancel ? 'close' : 'back', 22)),
       h('h1', { class: 'sheet-title' }, title),
-      right || h('span')),
+      onConfirm
+        ? h('button', { type: 'button', class: 'round-btn confirm', 'aria-label': 'Speichern', onclick: () => onConfirm() }, icon('check', 24))
+        : h('span')),
     body);
   document.body.append(sheet);
   document.body.classList.add('sheet-open');

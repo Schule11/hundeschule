@@ -18,7 +18,8 @@ export function isFormOpen() { return open; }
 export function onFormClosed(fn) { closeListeners.add(fn); }
 
 function getLastType() {
-  try { return localStorage.getItem('lastType') === 'income' ? 'income' : 'expense'; } catch { return 'expense'; }
+  // Standard: Einnahme (das Häufigste nach einer Trainingsstunde)
+  try { return localStorage.getItem('lastType') === 'expense' ? 'expense' : 'income'; } catch { return 'income'; }
 }
 function setLastType(type) {
   try { localStorage.setItem('lastType', type); } catch { /* egal */ }
@@ -129,47 +130,49 @@ export function openBookingForm(existing = null) {
   });
   const serviceWrap = h('div', null, h('label', { class: 'lbl', for: 'service-date' }, 'Datum der Stunde'), serviceInput);
 
-  // Bezahlt / noch offen (nur Einnahmen)
-  const statusButtons = {
-    paid: h('button', { type: 'button', onclick: () => setPaid(true) }, 'Bezahlt'),
-    open: h('button', { type: 'button', onclick: () => setPaid(false) }, 'Noch offen'),
-  };
   const openHint = h('p', { class: 'hint' },
-    'Die Einnahme erscheint unter „Offene Zahlungen“ und zählt erst zum Gewinn, wenn du sie als bezahlt abhakst.');
-  const statusWrap = h('div', null,
-    h('div', { class: 'lbl' }, 'Zahlung'),
-    h('div', { class: 'segmented segmented-status', role: 'group', 'aria-label': 'Zahlung' }, statusButtons.paid, statusButtons.open),
-    openHint);
+    'Erscheint unter „Offene Zahlungen“ und zählt erst zum Gewinn, wenn du sie als bezahlt abhakst.');
 
-  const payChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Zahlungsart' },
+  // Zahlung: Bar / Überweisung / PayPal – oder (nur Einnahmen) "Noch offen"
+  const openChip = h('button', {
+    type: 'button',
+    class: 'chip chip-open',
+    onclick: () => setPaid(!st.paid),
+  }, 'Noch offen');
+  const payChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Zahlung' },
     PAYMENT_METHODS.map((p) => h('button', {
       type: 'button',
       class: 'chip',
       'data-value': p.value,
       onclick: () => {
-        st.payment = st.payment === p.value ? null : p.value; // nochmal tippen = abwählen
+        // nochmal tippen = abwählen; eine Zahlungsart heißt immer "bezahlt"
+        st.payment = st.payment === p.value && st.paid ? null : p.value;
         st.dirty = true;
-        updatePayChips();
+        if (!st.paid) setPaid(true);
+        else updatePayChips();
       },
-    }, p.label)));
+    }, p.label)),
+    openChip);
 
-  const payWrap = h('div', null, h('div', { class: 'lbl' }, 'Zahlungsart (optional)'), payChips);
+  const payLabel = h('div', { class: 'lbl' }, 'Zahlung');
+  const payWrap = h('div', null, payLabel, payChips, openHint);
+  const personWrap = h('div');
 
   const fileInput = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: onFileChosen });
   const receiptRow = h('div', { class: 'receipt-row' });
 
   const errorBox = h('p', { class: 'form-error', role: 'alert', hidden: true });
   const saveBtn = h('button', { type: 'submit', class: 'btn primary block' }, 'Speichern');
-  const saveBtnTop = h('button', { type: 'submit', class: 'btn-text' }, 'Sichern');
+  const saveBtnTop = h('button', { type: 'submit', class: 'round-btn confirm', 'aria-label': 'Speichern' }, icon('check', 24));
 
   const form = h('form', { novalidate: true, onsubmit: (e) => { e.preventDefault(); save(); } },
     h('header', { class: 'sheet-bar' },
-      h('button', { type: 'button', class: 'btn-text', onclick: cancel }, 'Abbrechen'),
+      h('button', { type: 'button', class: 'round-btn', 'aria-label': 'Abbrechen', onclick: cancel }, icon('close', 22)),
       title,
       saveBtnTop),
     h('div', { class: 'sheet-body' },
       h('div', { class: 'segmented', role: 'group', 'aria-label': 'Art der Buchung' },
-        typeButtons.expense, typeButtons.income),
+        typeButtons.income, typeButtons.expense),
 
       amountLabel,
       h('div', { class: 'amount-wrap' }, amountInput, amountSuffix),
@@ -179,16 +182,14 @@ export function openBookingForm(existing = null) {
       h('div', { class: 'lbl', id: 'cat-label' }, 'Kategorie'),
       chips,
 
-      personLabel,
-      picker.el,
+      personWrap,
 
       h('label', { class: 'lbl', for: 'desc' }, 'Beschreibung'),
       descInput,
 
-      statusWrap,
+      payWrap,
       serviceWrap,
       dateWrap,
-      payWrap,
 
       h('div', { class: 'lbl' }, 'Beleg (optional)'),
       receiptRow,
@@ -222,6 +223,7 @@ export function openBookingForm(existing = null) {
     amountInput.placeholder = st.mileage ? '0' : '0,00';
     amountInput.setAttribute('aria-label', st.mileage ? 'Gefahrene Kilometer' : 'Betrag in Euro');
     updateAmountHint();
+    updatePerson();
   }
 
   function updateType() {
@@ -231,7 +233,7 @@ export function openBookingForm(existing = null) {
     typeButtons.income.setAttribute('aria-pressed', String(st.type === 'income'));
     const word = st.type === 'income' ? 'Einnahme' : 'Ausgabe';
     title.textContent = isEdit ? `${word} bearbeiten` : `Neue ${word}`;
-    personLabel.textContent = st.type === 'income' ? 'Kund:in (optional)' : 'Kund:in (optional, z. B. bei Fahrten)';
+    personLabel.textContent = 'Kund:in (optional)';
     updateStatus();
   }
 
@@ -239,7 +241,7 @@ export function openBookingForm(existing = null) {
     if (st.paid === paid) return;
     st.paid = paid;
     st.dirty = true;
-    if (!paid) st.showService = true;
+    if (!paid) { st.showService = true; st.payment = null; }
     updateStatus();
   }
 
@@ -248,13 +250,20 @@ export function openBookingForm(existing = null) {
   function updateStatus() {
     const income = st.type === 'income';
     const open = isOpenEntry();
-    statusWrap.hidden = !income;
-    statusButtons.paid.setAttribute('aria-pressed', String(!open));
-    statusButtons.open.setAttribute('aria-pressed', String(open));
+    openChip.hidden = !income;
+    payLabel.textContent = income ? 'Zahlung' : 'Zahlung (optional)';
     openHint.hidden = !open;
     serviceWrap.hidden = !(open || (income && st.showService));
     dateWrap.hidden = open;
-    payWrap.hidden = open;
+    updatePayChips();
+    updatePerson();
+  }
+
+  // Kund:in: bei Einnahmen immer, bei Ausgaben nur für Fahrten (oder wenn schon gewählt)
+  function updatePerson() {
+    const show = st.type === 'income' || st.mileage || picker.hasSelection() || !!picker.input.value.trim();
+    if (show && !personWrap.firstChild) personWrap.append(personLabel, picker.el);
+    if (!show) personWrap.replaceChildren();
   }
 
   function renderChips() {
@@ -290,7 +299,10 @@ export function openBookingForm(existing = null) {
   }
 
   function updatePayChips() {
-    for (const el of payChips.children) el.setAttribute('aria-pressed', String(el.dataset.value === st.payment));
+    for (const el of payChips.children) {
+      if (el === openChip) el.setAttribute('aria-pressed', String(isOpenEntry()));
+      else el.setAttribute('aria-pressed', String(st.paid && el.dataset.value === st.payment));
+    }
   }
 
   function updateAmountHint() {
@@ -492,7 +504,6 @@ export function openBookingForm(existing = null) {
 
   updateType();
   renderChips();
-  updatePayChips();
   updateMode();
   renderReceipt();
 
