@@ -3,7 +3,7 @@
 // bedeuten, steht in data.js.
 
 const DB_NAME = 'hundeschule';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -19,10 +19,12 @@ function upgrade(db, oldVersion) {
     db.createObjectStore('tombstones', { keyPath: 'id' }); // Merkzettel für Gelöschtes (fürs Zusammenführen)
     db.createObjectStore('meta', { keyPath: 'key' });      // Einstellungen u. Ä.
   }
+  if (oldVersion < 2) {
+    db.createObjectStore('contacts', { keyPath: 'id' });   // Kund:innen
+  }
   // Beispiel für später:
-  // if (oldVersion < 2) {
+  // if (oldVersion < 3) {
   //   db.createObjectStore('invoices', { keyPath: 'id' });
-  //   db.createObjectStore('customers', { keyPath: 'id' });
   // }
 }
 

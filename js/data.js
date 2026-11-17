@@ -14,12 +14,14 @@ import { DEFAULT_SETTINGS, defaultCategoryRecords } from './defaults.js';
  *   payment: 'cash'|'transfer'|'paypal'|null,
  *   receiptId: ID des Belegfotos oder null,
  *   km: Zahl oder null, kmRateCents: Integer oder null   (nur Fahrtkosten),
+ *   personId: ID der Kundin / des Kunden oder null,
  *   createdAt, updatedAt
  * }
  */
 export const state = {
   bookings: [],
   categories: [],
+  contacts: [], // Kund:innen: { id, name, dog, createdAt, updatedAt }
   settings: { ...DEFAULT_SETTINGS },
   local: {}, // nur für dieses Gerät (z. B. Zeitpunkt des letzten Backups)
 };
@@ -58,9 +60,10 @@ export const nowISO = () => new Date().toISOString();
 const DATA_VERSION = 2;
 
 export async function load() {
-  let [bookings, categories, meta] = await Promise.all([
+  let [bookings, categories, contacts, meta] = await Promise.all([
     db.getAll('bookings'),
     db.getAll('categories'),
+    db.getAll('contacts'),
     db.getAll('meta'),
   ]);
   const m = Object.fromEntries(meta.map((x) => [x.key, x.value]));
@@ -72,6 +75,7 @@ export async function load() {
 
   state.bookings = bookings;
   state.categories = categories;
+  state.contacts = contacts;
   state.settings = { ...DEFAULT_SETTINGS, ...(m.settings || {}) };
   state.local = m.local || {};
 
@@ -188,6 +192,81 @@ export async function deleteCategory(id, moveToId = null) {
   return moved.length;
 }
 
+// ---------- Kund:innen ----------
+
+export function contactById(id) {
+  return id ? state.contacts.find((c) => c.id === id) || null : null;
+}
+
+/** "Anna Müller (Bello)" */
+export function contactLabel(contact) {
+  if (!contact) return '';
+  return contact.dog ? `${contact.name} (${contact.dog})` : contact.name;
+}
+
+export function contactsSorted() {
+  return [...state.contacts].sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+}
+
+/** Zuletzt benutzte Kund:innen zuerst, danach neu angelegte */
+export function recentContacts(limit = 6) {
+  const lastUsed = new Map();
+  for (const b of state.bookings) {
+    if (!b.personId) continue;
+    const prev = lastUsed.get(b.personId);
+    if (!prev || prev < b.createdAt) lastUsed.set(b.personId, b.createdAt);
+  }
+  return [...state.contacts]
+    .sort((a, b) => ((lastUsed.get(b.id) || b.createdAt) > (lastUsed.get(a.id) || a.createdAt) ? 1 : -1))
+    .slice(0, limit);
+}
+
+export function findContactByName(name) {
+  const n = String(name || '').trim().toLocaleLowerCase('de');
+  return state.contacts.find((c) => c.name.toLocaleLowerCase('de') === n) || null;
+}
+
+export function contactStats(id) {
+  const list = state.bookings.filter((b) => b.personId === id);
+  return { count: list.length, ...sumBookings(list) };
+}
+
+export async function saveContact(input, { silent = false } = {}) {
+  const existing = contactById(input.id);
+  const now = nowISO();
+  const contact = {
+    dog: '',
+    ...existing,
+    ...input,
+    name: String(input.name ?? existing?.name ?? '').trim(),
+    dog: String(input.dog ?? existing?.dog ?? '').trim(),
+    id: existing?.id || uid('p'),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+  };
+  await db.write(['contacts'], (s) => s.contacts.put(contact));
+  replaceInState(state.contacts, contact);
+  if (!silent) emitChange();
+  return contact;
+}
+
+/** Kund:in löschen – die Buchungen bleiben, nur die Verknüpfung entfällt */
+export async function deleteContact(id) {
+  const now = nowISO();
+  const unlinked = state.bookings
+    .filter((b) => b.personId === id)
+    .map((b) => ({ ...b, personId: null, updatedAt: now }));
+  await db.write(['contacts', 'bookings', 'tombstones'], (s) => {
+    s.contacts.delete(id);
+    s.tombstones.put({ id, kind: 'contact', deletedAt: now });
+    for (const b of unlinked) s.bookings.put(b);
+  });
+  state.contacts = state.contacts.filter((c) => c.id !== id);
+  for (const b of unlinked) replaceInState(state.bookings, b);
+  emitChange();
+  return unlinked.length;
+}
+
 // ---------- Umsatz (für die Kleinunternehmergrenze) ----------
 
 /** Umsatz eines Jahres: von Hand eingetragen, sonst Summe der Einnahmen in der App */
@@ -236,6 +315,7 @@ export async function saveBooking(input, receiptChange = null) {
     km: null,
     kmRateCents: null,
     receiptId: null,
+    personId: null,
     ...existing,
     ...input,
     id: existing?.id || uid('b'),

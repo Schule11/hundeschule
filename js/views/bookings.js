@@ -1,7 +1,7 @@
 // Bildschirm "Buchungen": Liste nach Monaten, mit Suche und Filtern.
 
 import { h, mount } from '../ui.js';
-import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears } from '../data.js';
+import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears, contactById, contactLabel } from '../data.js';
 import { paymentLabel } from '../defaults.js';
 import { formatSigned, formatDate, centsToInput, monthLabel, normalizeText } from '../format.js';
 import { bookingRow, yearSelect } from './components.js';
@@ -11,12 +11,13 @@ const filters = {
   year: String(new Date().getFullYear()),
   type: 'all',
   category: 'all',
+  person: null, // nur Buchungen einer Kund:in (aus Auswertung/Kundenliste)
   q: '',
 };
 
 /** Liste mit Filter öffnen (z. B. aus der Auswertung: "alle Buchungen dieser Kategorie") */
-export function showBookings({ year = 'all', type = 'all', category = 'all' } = {}) {
-  Object.assign(filters, { year, type, category, q: '' });
+export function showBookings({ year = 'all', type = 'all', category = 'all', person = null } = {}) {
+  Object.assign(filters, { year, type, category, person, q: '' });
   location.hash = '#/buchungen';
 }
 
@@ -85,10 +86,12 @@ export function render(root) {
       if (filters.year !== 'all' && b.date.slice(0, 4) !== filters.year) return false;
       if (filters.type !== 'all' && b.type !== filters.type) return false;
       if (filters.category !== 'all' && b.categoryId !== filters.category) return false;
+      if (filters.person && (b.personId || 'none') !== filters.person) return false;
       if (q) {
         const hay = normalizeText([
           b.description,
           categoryName(b.categoryId),
+          contactLabel(contactById(b.personId)),
           centsToInput(b.amountCents),
           formatDate(b.date),
           paymentLabel(b.payment),
@@ -102,7 +105,7 @@ export function render(root) {
   function renderResults() {
     const list = sortBookings(filtered());
     const total = sumBookings(list);
-    const isFiltered = filters.q || filters.type !== 'all' || filters.category !== 'all';
+    const isFiltered = filters.q || filters.type !== 'all' || filters.category !== 'all' || filters.person;
 
     if (!state.bookings.length) {
       results.replaceChildren(h('div', { class: 'empty' },
@@ -145,12 +148,30 @@ export function render(root) {
     );
   }
 
+  // Gelöschte Kund:in? Dann Filter zurücksetzen
+  if (filters.person && filters.person !== 'none' && !contactById(filters.person)) filters.person = null;
+
+  // Aktiver Kund:innen-Filter als entfernbares Schild
+  let personChip = null;
+  if (filters.person) {
+    const label = filters.person === 'none' ? 'ohne Kund:in' : (contactLabel(contactById(filters.person)) || 'unbekannt');
+    personChip = h('div', { class: 'person-pill filter-pill' },
+      h('span', { class: 'person-pill-name' }, `Kund:in: ${label}`),
+      h('button', {
+        type: 'button',
+        class: 'pill-clear',
+        'aria-label': 'Filter entfernen',
+        onclick: () => { filters.person = null; personChip.remove(); renderResults(); },
+      }, '✕'));
+  }
+
   fillCategories();
   mount(root,
     h('h1', { class: 'page-title' }, 'Buchungen'),
     h('div', { class: 'filters' },
       search,
-      h('div', { class: 'filter-row' }, yearSel, typeSel, catSel)),
+      h('div', { class: 'filter-row' }, yearSel, typeSel, catSel),
+      personChip),
     results,
   );
   renderResults();

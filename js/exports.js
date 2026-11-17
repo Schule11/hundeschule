@@ -1,6 +1,6 @@
 // Export der Jahresauswertung als CSV (für Excel/Numbers) und als PDF.
 
-import { state, categoryName, categoryById } from './data.js';
+import { state, categoryName, categoryById, contactById, contactLabel } from './data.js';
 import { paymentLabel, euerPostenFor } from './defaults.js';
 import { yearReport } from './yearReport.js';
 import { formatMoney, formatSigned, formatProfit, formatDate, formatKm, todayISO, MONTHS } from './format.js';
@@ -32,7 +32,7 @@ function csvFile(rows, name) {
 export function bookingsCsv(year) {
   const r = yearReport(year);
   const rows = [[
-    'Datum', 'Art', 'Kategorie', 'EÜR-Posten', 'Beschreibung', 'Zahlungsart', 'Einnahme (EUR)', 'Ausgabe (EUR)', 'Kilometer', 'Beleg',
+    'Datum', 'Art', 'Kategorie', 'EÜR-Posten', 'Kund:in', 'Beschreibung', 'Zahlungsart', 'Einnahme (EUR)', 'Ausgabe (EUR)', 'Kilometer', 'Beleg',
   ].map(textCell)];
   for (const b of r.bookings) {
     rows.push([
@@ -40,6 +40,7 @@ export function bookingsCsv(year) {
       textCell(b.type === 'income' ? 'Einnahme' : 'Ausgabe'),
       textCell(categoryName(b.categoryId)),
       textCell(euerPostenFor(categoryById(b.categoryId))),
+      textCell(contactLabel(contactById(b.personId))),
       textCell(b.description),
       textCell(paymentLabel(b.payment)),
       b.type === 'income' ? moneyCell(b.amountCents) : '',
@@ -49,7 +50,7 @@ export function bookingsCsv(year) {
     ]);
   }
   rows.push([]);
-  rows.push(['', '', '', '', textCell('Summe'), '', moneyCell(r.totals.income), moneyCell(r.totals.expense), '', '']);
+  rows.push(['', '', '', '', '', textCell('Summe'), '', moneyCell(r.totals.income), moneyCell(r.totals.expense), '', '']);
   return csvFile(rows, `hundeschule-buchungen-${year}.csv`);
 }
 
@@ -76,6 +77,11 @@ export function summaryCsv(year) {
   rows.push([]);
   rows.push(['Monat', 'Einnahmen (EUR)', 'Ausgaben (EUR)', 'Ergebnis (EUR)'].map(textCell));
   r.months.forEach((m, i) => rows.push([textCell(MONTHS[i]), moneyCell(m.income), moneyCell(m.expense), moneyCell(m.profit)]));
+  if (r.persons.length) {
+    rows.push([]);
+    rows.push(['Kund:in', 'Einnahmen (EUR)', 'Anzahl Zahlungen'].map(textCell));
+    for (const p of r.persons) rows.push([textCell(p.label), moneyCell(p.cents), String(p.count)]);
+  }
   return csvFile(rows, `hundeschule-summen-${year}.csv`);
 }
 
@@ -262,7 +268,9 @@ export function reportPdf(year) {
       y += 13;
       pdf.text(formatDate(b.date), X.date, y, { size: 9 });
       pdf.text(categoryName(b.categoryId), X.cat, y, { size: 9, maxWidth: 104 });
-      const desc = b.km ? `${b.description || ''} (${formatKm(b.km)} km)`.trim() : (b.description || '');
+      const person = contactById(b.personId)?.name;
+      let desc = [person, b.description].filter(Boolean).join(' – ');
+      if (b.km) desc = `${desc} (${formatKm(b.km)} km)`.trim();
       pdf.text(desc, X.desc, y, { size: 9, maxWidth: 178 });
       pdf.text(paymentLabel(b.payment), X.pay, y, { size: 9, maxWidth: 58 });
       pdf.text(b.receiptId ? 'ja' : '', X.receipt, y, { size: 9 });

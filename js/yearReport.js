@@ -1,7 +1,7 @@
 // Berechnet die Jahresauswertung – genutzt vom Bildschirm "Auswertung",
 // vom CSV- und vom PDF-Export. So stimmen alle drei immer überein.
 
-import { state, categoryById, sumBookings } from './data.js';
+import { state, categoryById, sumBookings, contactById, contactLabel } from './data.js';
 import { euerPostenFor, euerOrder } from './defaults.js';
 
 /**
@@ -71,5 +71,20 @@ export function yearReport(year) {
   }
   for (const m of months) m.profit = m.income - m.expense;
 
-  return { year: Number(year), bookings, totals, categories, posten, months };
+  // Einnahmen pro Kund:in (nur wenn überhaupt Namen zugeordnet sind)
+  const byPerson = new Map();
+  for (const b of bookings) {
+    if (b.type !== 'income') continue;
+    const contact = contactById(b.personId);
+    const key = contact ? contact.id : 'none';
+    if (!byPerson.has(key)) byPerson.set(key, { id: key, label: contact ? contactLabel(contact) : 'Ohne Kund:in', count: 0, cents: 0 });
+    const p = byPerson.get(key);
+    p.count += 1;
+    p.cents += b.amountCents;
+  }
+  const persons = byPerson.size && [...byPerson.keys()].some((k) => k !== 'none')
+    ? [...byPerson.values()].sort((a, b) => (a.id === 'none') - (b.id === 'none') || b.cents - a.cents)
+    : [];
+
+  return { year: Number(year), bookings, totals, categories, posten, months, persons };
 }

@@ -2,8 +2,9 @@
 
 import { h, icon, toast, confirmDialog, openImageViewer, isTouchDevice } from '../ui.js';
 import {
-  state, categoriesFor, categoryById, saveBooking, deleteBooking, getReceipt, receiptToBlob,
+  state, categoriesFor, categoryById, saveBooking, deleteBooking, getReceipt, receiptToBlob, saveContact,
 } from '../data.js';
+import { personPicker } from './personPicker.js';
 import { PAYMENT_METHODS } from '../defaults.js';
 import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm } from '../format.js';
 import { resizeImage } from '../image.js';
@@ -77,6 +78,9 @@ export function openBookingForm(existing = null) {
 
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Kategorie' });
 
+  const personLabel = h('label', { class: 'lbl', for: 'person' }, 'Kund:in (optional)');
+  const picker = personPicker({ initialId: existing?.personId, onChange: () => { st.dirty = true; } });
+
   const descInput = h('input', {
     class: 'field',
     id: 'desc',
@@ -139,6 +143,9 @@ export function openBookingForm(existing = null) {
       h('div', { class: 'lbl', id: 'cat-label' }, 'Kategorie'),
       chips,
 
+      personLabel,
+      picker.el,
+
       h('label', { class: 'lbl', for: 'desc' }, 'Beschreibung'),
       descInput,
 
@@ -189,6 +196,7 @@ export function openBookingForm(existing = null) {
     typeButtons.income.setAttribute('aria-pressed', String(st.type === 'income'));
     const word = st.type === 'income' ? 'Einnahme' : 'Ausgabe';
     title.textContent = isEdit ? `${word} bearbeiten` : `Neue ${word}`;
+    personLabel.textContent = st.type === 'income' ? 'Kund:in (optional)' : 'Kund:in (optional, z. B. bei Fahrten)';
   }
 
   function renderChips() {
@@ -208,8 +216,15 @@ export function openBookingForm(existing = null) {
           // Fahrtkosten: weiter zur Kilometer-Eingabe
           amountInput.focus();
           amountInput.select();
-        } else if (!isEdit && !descInput.value) {
-          // Neue Buchung: direkt weiter zur Beschreibung
+        } else if (isEdit) {
+          // beim Bearbeiten nichts automatisch fokussieren
+        } else if (st.type === 'income' && !picker.hasSelection()) {
+          // Einnahme: weiter zur Kund:in. Gibt es schon Namen, Tastatur schließen,
+          // damit die Vorschläge zu sehen sind; sonst gleich tippen lassen.
+          if (state.contacts.length) document.activeElement?.blur();
+          else picker.input.focus();
+        } else if (!descInput.value) {
+          // sonst direkt weiter zur Beschreibung
           descInput.focus();
         }
       },
@@ -331,6 +346,10 @@ export function openBookingForm(existing = null) {
     saveBtn.disabled = true;
     saveBtnTop.disabled = true;
     try {
+      // Neue Kund:in gleich mit anlegen
+      let { personId = null, newName } = picker.value();
+      if (newName) personId = (await saveContact({ name: newName }, { silent: true })).id;
+
       const receiptChange = st.newReceipt
         ? { add: { data: st.newReceipt.data, type: st.newReceipt.type, width: st.newReceipt.width, height: st.newReceipt.height } }
         : (st.removeReceipt ? { remove: true } : null);
@@ -344,6 +363,7 @@ export function openBookingForm(existing = null) {
         payment: st.payment,
         km,
         kmRateCents: km != null ? kmRateCents : null,
+        personId,
       }, receiptChange);
       setLastType(st.type);
       close();

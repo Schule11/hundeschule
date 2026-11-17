@@ -12,6 +12,7 @@ import { createBackupFile, markBackupDone, readBackupFile, applyBackup } from '.
 import { saveFile, prefersShare } from '../files.js';
 import { smallBusinessStatus } from '../notices.js';
 import { openCategoryList } from './categories.js';
+import { openContactList } from './contacts.js';
 
 const plain = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 const euroPlain = (cents) => plain.format(cents / 100); // 2500000 → "25.000"
@@ -154,6 +155,14 @@ export function render(root) {
     h('h2', { class: 'section-title' }, 'Kategorien'),
     h('div', { class: 'rows' }, catButton('income', 'Einnahmen'), catButton('expense', 'Ausgaben')),
 
+    h('h2', { class: 'section-title' }, 'Kund:innen'),
+    h('div', { class: 'rows' },
+      h('button', { type: 'button', class: 'row', onclick: () => openContactList() },
+        h('div', { class: 'row-main' },
+          h('div', { class: 'row-title' }, 'Kund:innen'),
+          h('div', { class: 'row-sub' }, `${state.contacts.length} gespeichert`)),
+        h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'))),
+
     h('h2', { class: 'section-title' }, 'Fahrtkosten'),
     h('section', { class: 'card' },
       settingField({
@@ -226,7 +235,7 @@ export function render(root) {
 
     h('h2', { class: 'section-title' }, 'App'),
     h('section', { class: 'card' },
-      h('div', { class: 'kv' }, h('span', null, 'Version'), h('span', null, `${APP_VERSION} (${APP_STAGE})`)),
+      h('div', { class: 'kv' }, h('span', null, 'Version'), h('span', null, APP_STAGE ? `${APP_VERSION} (${APP_STAGE})` : APP_VERSION)),
       h('div', { class: 'kv' }, h('span', null, 'Gespeicherte Buchungen'), h('span', null, String(state.bookings.length))),
       h('div', { class: 'kv' }, h('span', null, 'Speicher'), storageInfo)),
   );

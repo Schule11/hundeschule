@@ -29,15 +29,21 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 
 | Bereich | Was du dort machst |
 |---|---|
-| **+ (großer Knopf)** | Neue Buchung: Betrag, Kategorie, optional Beschreibung, Datum, Zahlungsart, Belegfoto |
+| **+ (großer Knopf)** | Neue Buchung: Betrag, Kategorie, optional Kund:in, Beschreibung, Datum, Zahlungsart, Belegfoto |
 | **Übersicht** | Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise (Backup, Kleinunternehmergrenze) |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter; antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
-| **Einstellungen** | Name, Kategorien, Kilometerpauschale, Kleinunternehmergrenzen, Backup, hell/dunkel |
+| **Einstellungen** | Name, Kategorien, Kund:innen, Kilometerpauschale, Kleinunternehmergrenzen, Backup, hell/dunkel |
 
 **Fahrtkosten:** Wählst du die Kategorie „Fahrtkosten“, gibst du statt eines Betrags die gefahrenen Kilometer ein.
 Die App rechnet mit der Kilometerpauschale aus den Einstellungen (Standard 0,30 €/km).
 Änderst du die Pauschale, gilt der neue Wert nur für neue Fahrten.
+
+**Kund:innen:** Bei einer Einnahme (und auf Wunsch auch bei einer Ausgabe, z. B. einer Fahrt) wählst du,
+von wem das Geld kommt. Die zuletzt benutzten Namen stehen als Knöpfe bereit; beim Tippen wird gefiltert.
+Ein neuer Name wird beim Speichern automatisch angelegt. Unter *Einstellungen → Kund:innen* kannst du Namen
+ändern, einen Hundenamen ergänzen (wird mit angezeigt und ist durchsuchbar) und alle Buchungen einer Person ansehen.
+Die *Auswertung* zeigt außerdem „Einnahmen nach Kund:in“.
 
 **Datum = Tag der Zahlung.** Die EÜR zählt, wann das Geld geflossen ist, nicht wann die Rechnung kam.
 
@@ -135,13 +141,13 @@ Reines HTML, CSS und JavaScript, ohne Build-Werkzeuge und ohne fremde Bibliothek
 | `js/yearReport.js`, `js/exports.js`, `js/pdf.js` | Jahresauswertung, CSV, PDF |
 | `js/backup.js` | Backup erstellen, prüfen, zusammenführen |
 | `js/notices.js` | Kleinunternehmer-Hinweis, Backup-Erinnerung |
-| `js/views/*.js` | Die einzelnen Bildschirme |
+| `js/views/*.js` | Die einzelnen Bildschirme (u. a. `personPicker.js`: Kund:in-Auswahl, `contacts.js`: Kund:innen verwalten) |
 | `sw.js` | Offline-Modus (Liste aller Dateien) |
 
 **Bei jeder Änderung** die Versionsnummer in `js/config.js` **und** `sw.js` erhöhen, damit Handys die neue
 Version laden. Neue Dateien in die Liste in `sw.js` eintragen.
 
-**Rechnungen ergänzen (Idee):** In `js/db.js` die `DB_VERSION` erhöhen und neue Speicher `invoices`/`customers`
-anlegen (das Beispiel steht dort schon als Kommentar). Eine Buchung kann dann über ein Feld `invoiceId` auf
-ihre Rechnung verweisen. Vorhandene Daten bleiben dabei erhalten. Das Backup-Format (`BACKUP_FORMAT` in
-`js/config.js`) entsprechend erweitern.
+**Rechnungen ergänzen (Idee):** In `js/db.js` die `DB_VERSION` erhöhen und einen neuen Speicher `invoices`
+anlegen (das Beispiel steht dort schon als Kommentar). Kund:innen gibt es bereits (`contacts`), eine Rechnung
+kann also direkt auf `personId` verweisen, und eine Buchung über ein Feld `invoiceId` auf ihre Rechnung.
+Vorhandene Daten bleiben dabei erhalten. Das Backup-Format (`BACKUP_FORMAT` in `js/config.js`) entsprechend erweitern.

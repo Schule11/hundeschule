@@ -42,6 +42,7 @@ export async function createBackupFile() {
     exportedAt: nowISO(),
     settings: state.settings,
     categories: state.categories,
+    contacts: state.contacts,
     bookings: state.bookings,
     tombstones,
   };
@@ -109,6 +110,7 @@ function sanitize(data) {
       description: str(b.description),
       payment: ['cash', 'transfer', 'paypal'].includes(b.payment) ? b.payment : null,
       receiptId: typeof b.receiptId === 'string' ? b.receiptId : null,
+      personId: typeof b.personId === 'string' ? b.personId : null,
       km: typeof b.km === 'number' && b.km >= 0 ? b.km : null,
       kmRateCents: Number.isSafeInteger(b.kmRateCents) ? b.kmRateCents : null,
       createdAt: str(b.createdAt) || nowISO(),
@@ -126,6 +128,16 @@ function sanitize(data) {
       euer: str(c.euer),
       mileage: !!c.mileage,
       order: Number.isFinite(c.order) ? c.order : i,
+      updatedAt: str(c.updatedAt) || nowISO(),
+    }));
+
+  const contacts = arr(data.contacts)
+    .filter((c) => c && typeof c.id === 'string' && str(c.name).trim())
+    .map((c) => ({
+      id: c.id,
+      name: c.name.trim(),
+      dog: str(c.dog).trim(),
+      createdAt: str(c.createdAt) || nowISO(),
       updatedAt: str(c.updatedAt) || nowISO(),
     }));
 
@@ -152,6 +164,7 @@ function sanitize(data) {
     exportedAt: str(data.exportedAt),
     bookings,
     categories,
+    contacts,
     receipts,
     tombstones,
     settings,
@@ -179,13 +192,15 @@ export async function applyBackup(backup, mode) {
 
   let result;
   if (mode === 'replace') {
-    await db.write(['bookings', 'categories', 'receipts', 'tombstones', 'meta'], (s) => {
+    await db.write(['bookings', 'categories', 'contacts', 'receipts', 'tombstones', 'meta'], (s) => {
       s.bookings.clear();
       s.categories.clear();
+      s.contacts.clear();
       s.receipts.clear();
       s.tombstones.clear();
       for (const b of backup.bookings) s.bookings.put(b);
       for (const c of backup.categories) s.categories.put(c);
+      for (const c of backup.contacts) s.contacts.put(c);
       for (const r of receipts) s.receipts.put(r);
       for (const t of backup.tombstones) s.tombstones.put(t);
       if (backup.settings) s.meta.put({ key: 'settings', value: backup.settings });
@@ -233,18 +248,27 @@ async function merge(backup, receipts) {
     if (deletedAfter(local.id, newest.updatedAt)) { plan.delB.push(local.id); removed++; }
   }
 
-  // Kategorien
-  const localC = new Map(state.categories.map((c) => [c.id, c]));
-  for (const c of backup.categories) {
-    const local = localC.get(c.id);
-    if (deletedAfter(c.id, c.updatedAt)) continue;
-    if (!local || c.updatedAt > local.updatedAt) plan.putC.push(c);
-  }
-  for (const local of state.categories) {
-    const incoming = backup.categories.find((c) => c.id === local.id);
-    const newest = incoming && incoming.updatedAt > local.updatedAt ? incoming : local;
-    if (deletedAfter(local.id, newest.updatedAt)) plan.delC.push(local.id);
-  }
+  // Kategorien und Kund:innen: das jeweils Neuere gewinnt
+  const mergeList = (localList, incomingList) => {
+    const put = [];
+    const del = [];
+    const localMap = new Map(localList.map((x) => [x.id, x]));
+    for (const x of incomingList) {
+      const local = localMap.get(x.id);
+      if (deletedAfter(x.id, x.updatedAt)) continue;
+      if (!local || x.updatedAt > local.updatedAt) put.push(x);
+    }
+    for (const local of localList) {
+      const incoming = incomingList.find((x) => x.id === local.id);
+      const newest = incoming && incoming.updatedAt > local.updatedAt ? incoming : local;
+      if (deletedAfter(local.id, newest.updatedAt)) del.push(local.id);
+    }
+    return { put, del };
+  };
+  const cats = mergeList(state.categories, backup.categories);
+  plan.putC = cats.put;
+  plan.delC = cats.del;
+  const people = mergeList(state.contacts, backup.contacts);
 
   // Fotos (ändern sich nie – ein neues Foto bekommt eine neue ID)
   const haveR = new Set(localReceiptIds);
@@ -256,7 +280,9 @@ async function merge(backup, receipts) {
   // Einstellungen: die neueren gewinnen
   const takeSettings = backup.settings && (backup.settings.updatedAt || '') > (state.settings.updatedAt || '');
 
-  await db.write(['bookings', 'categories', 'receipts', 'tombstones', 'meta'], (s) => {
+  await db.write(['bookings', 'categories', 'contacts', 'receipts', 'tombstones', 'meta'], (s) => {
+    for (const c of people.put) s.contacts.put(c);
+    for (const id of people.del) s.contacts.delete(id);
     for (const b of plan.putB) s.bookings.put(b);
     for (const id of plan.delB) s.bookings.delete(id);
     for (const c of plan.putC) s.categories.put(c);
