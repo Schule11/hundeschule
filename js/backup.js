@@ -138,7 +138,13 @@ function sanitize(data) {
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
       const v = data.settings[key];
       if (v === undefined) continue;
-      if (DEFAULT_SETTINGS[key] === null || typeof v === typeof DEFAULT_SETTINGS[key]) settings[key] = v;
+      if (key === 'manualRevenue') {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          settings.manualRevenue = Object.fromEntries(Object.entries(v).filter(([y, c]) => /^\d{4}$/.test(y) && Number.isSafeInteger(c)));
+        }
+      } else if (DEFAULT_SETTINGS[key] === null || typeof v === typeof DEFAULT_SETTINGS[key]) {
+        settings[key] = v;
+      }
     }
   }
 

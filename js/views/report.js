@@ -2,7 +2,7 @@
 
 import { h, mount, icon, toast, alertDialog } from '../ui.js';
 import { state, bookingYears } from '../data.js';
-import { formatMoney, formatSigned, formatProfit, MONTHS } from '../format.js';
+import { formatMoney, formatSigned, formatProfit, formatKm, MONTHS } from '../format.js';
 import { yearReport } from '../yearReport.js';
 import { bookingsCsv, summaryCsv, reportPdf, preloadLogo } from '../exports.js';
 import { saveFile, prefersShare } from '../files.js';
@@ -66,7 +66,7 @@ export function render(root) {
     },
     h('div', { class: 'report-main' },
       h('div', { class: 'report-name' }, c.name),
-      h('div', { class: 'report-sub' }, `${c.count} ${c.count === 1 ? 'Buchung' : 'Buchungen'}${c.km ? ` · ${String(c.km).replace('.', ',')} km` : ''}`)),
+      h('div', { class: 'report-sub' }, `${c.count} ${c.count === 1 ? 'Buchung' : 'Buchungen'}${c.km ? ` · ${formatKm(c.km)} km` : ''}`)),
     h('div', { class: `report-amt ${c.type === 'income' ? 'pos' : 'neg'}` }, formatSigned(c.cents, c.type)))));
 
   // --- Monate ---

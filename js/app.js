@@ -1,7 +1,7 @@
 // Start der App: Daten laden, Bildschirme anzeigen, Offline-Modus einrichten.
 
 import { load, onChange } from './data.js';
-import { h, toast } from './ui.js';
+import { h, toast, applyTheme } from './ui.js';
 import { APP_VERSION } from './config.js';
 import { openBookingForm, isFormOpen, onFormClosed } from './views/form.js';
 import * as overview from './views/overview.js';
@@ -36,6 +36,7 @@ function render({ keepScroll = false } = {}) {
 }
 
 async function boot() {
+  applyTheme();
   try {
     await load();
   } catch (err) {

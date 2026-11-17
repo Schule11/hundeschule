@@ -3,7 +3,7 @@
 import { state, categoryName, categoryById } from './data.js';
 import { paymentLabel, euerPostenFor } from './defaults.js';
 import { yearReport } from './yearReport.js';
-import { formatMoney, formatSigned, formatProfit, formatDate, todayISO, MONTHS } from './format.js';
+import { formatMoney, formatSigned, formatProfit, formatDate, formatKm, todayISO, MONTHS } from './format.js';
 import { Pdf } from './pdf.js';
 
 // ---------- CSV ----------
@@ -44,7 +44,7 @@ export function bookingsCsv(year) {
       textCell(paymentLabel(b.payment)),
       b.type === 'income' ? moneyCell(b.amountCents) : '',
       b.type === 'expense' ? moneyCell(b.amountCents) : '',
-      b.km ? String(b.km).replace('.', ',') : '',
+      b.km ? formatKm(b.km) : '',
       textCell(b.receiptId ? 'ja' : ''),
     ]);
   }
@@ -204,7 +204,7 @@ export function reportPdf(year) {
       pdf.text('Buchungen', R - 110, y, { size: 8.5, color: GREY, align: 'right' });
       pdf.text('Betrag', R, y, { size: 8.5, color: GREY, align: 'right' });
       for (const c of list) {
-        const label = c.km ? `${c.name} (${String(c.km).replace('.', ',')} km)` : c.name;
+        const label = c.km ? `${c.name} (${formatKm(c.km)} km)` : c.name;
         row(label, formatMoney(c.cents), { count: c.count });
       }
     };
@@ -262,7 +262,7 @@ export function reportPdf(year) {
       y += 13;
       pdf.text(formatDate(b.date), X.date, y, { size: 9 });
       pdf.text(categoryName(b.categoryId), X.cat, y, { size: 9, maxWidth: 104 });
-      const desc = b.km ? `${b.description || ''} (${String(b.km).replace('.', ',')} km)`.trim() : (b.description || '');
+      const desc = b.km ? `${b.description || ''} (${formatKm(b.km)} km)`.trim() : (b.description || '');
       pdf.text(desc, X.desc, y, { size: 9, maxWidth: 178 });
       pdf.text(paymentLabel(b.payment), X.pay, y, { size: 9, maxWidth: 58 });
       pdf.text(b.receiptId ? 'ja' : '', X.receipt, y, { size: 9 });

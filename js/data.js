@@ -55,7 +55,7 @@ export const nowISO = () => new Date().toISOString();
 
 // ---------- Laden ----------
 
-const DATA_VERSION = 1;
+const DATA_VERSION = 2;
 
 export async function load() {
   let [bookings, categories, meta] = await Promise.all([
@@ -81,7 +81,11 @@ export async function load() {
 /** Datenanpassungen für neue App-Versionen laufen hier genau einmal. */
 async function migrate(from) {
   if (from >= DATA_VERSION) return;
-  // Version 1: Ausgangszustand – nichts umzubauen.
+  // Version 2: Name der Hundeschule vorbelegen (vorher nur "Hundeschule")
+  if (from < 2 && (!state.settings.businessName || state.settings.businessName === 'Hundeschule')) {
+    state.settings = { ...state.settings, businessName: DEFAULT_SETTINGS.businessName };
+    await db.write(['meta'], (s) => s.meta.put({ key: 'settings', value: state.settings }));
+  }
   await db.write(['meta'], (s) => s.meta.put({ key: 'dataVersion', value: DATA_VERSION }));
 }
 
@@ -117,6 +121,83 @@ export function categoriesFor(type, { recentFirst = false } = {}) {
     .slice(0, 4);
   const rest = cats.filter((c) => !recent.includes(c));
   return [...recent, ...rest];
+}
+
+export function bookingCount(categoryId) {
+  return state.bookings.filter((b) => b.categoryId === categoryId).length;
+}
+
+function replaceInState(list, item) {
+  const i = list.findIndex((x) => x.id === item.id);
+  if (i >= 0) list[i] = item;
+  else list.push(item);
+}
+
+/** Neue oder geänderte Kategorie speichern */
+export async function saveCategory(input) {
+  const existing = input.id ? categoryById(input.id) : null;
+  const sameType = state.categories.filter((c) => c.type === input.type);
+  const cat = {
+    key: null,
+    euer: '',
+    mileage: false,
+    ...existing,
+    ...input,
+    id: existing?.id || uid('cat'),
+    order: existing ? existing.order : Math.max(-1, ...sameType.map((c) => c.order)) + 1,
+    updatedAt: nowISO(),
+  };
+  await db.write(['categories'], (s) => s.categories.put(cat));
+  replaceInState(state.categories, cat);
+  emitChange();
+  return cat;
+}
+
+/** Kategorie in der Reihenfolge nach oben (-1) oder unten (+1) schieben */
+export async function moveCategory(id, direction) {
+  const cat = categoryById(id);
+  if (!cat) return;
+  const list = categoriesFor(cat.type);
+  const i = list.findIndex((c) => c.id === id);
+  const j = i + direction;
+  if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  const now = nowISO();
+  const changed = [];
+  list.forEach((c, idx) => { if (c.order !== idx) changed.push({ ...c, order: idx, updatedAt: now }); });
+  await db.write(['categories'], (s) => { for (const c of changed) s.categories.put(c); });
+  for (const c of changed) replaceInState(state.categories, c);
+  emitChange();
+}
+
+/** Kategorie löschen; vorhandene Buchungen wandern in moveToId */
+export async function deleteCategory(id, moveToId = null) {
+  const now = nowISO();
+  const moved = state.bookings
+    .filter((b) => b.categoryId === id)
+    .map((b) => ({ ...b, categoryId: moveToId, updatedAt: now }));
+  if (moved.length && !categoryById(moveToId)) throw new Error('Bitte eine Kategorie wählen, in die die Buchungen verschoben werden.');
+  await db.write(['categories', 'bookings', 'tombstones'], (s) => {
+    s.categories.delete(id);
+    s.tombstones.put({ id, kind: 'category', deletedAt: now });
+    for (const b of moved) s.bookings.put(b);
+  });
+  state.categories = state.categories.filter((c) => c.id !== id);
+  for (const b of moved) replaceInState(state.bookings, b);
+  emitChange();
+  return moved.length;
+}
+
+// ---------- Umsatz (für die Kleinunternehmergrenze) ----------
+
+/** Umsatz eines Jahres: von Hand eingetragen, sonst Summe der Einnahmen in der App */
+export function revenueFor(year) {
+  const manual = state.settings.manualRevenue?.[String(year)];
+  if (Number.isSafeInteger(manual)) return { cents: manual, manual: true };
+  const cents = state.bookings
+    .filter((b) => b.type === 'income' && b.date.startsWith(String(year)))
+    .reduce((sum, b) => sum + b.amountCents, 0);
+  return { cents, manual: false };
 }
 
 // ---------- Buchungen ----------
@@ -219,17 +300,18 @@ export function receiptToBlob(receipt) {
 
 // ---------- Einstellungen ----------
 
-export async function updateSettings(patch) {
+/** silent: Bildschirm nicht neu aufbauen (z. B. beim Tippen in den Einstellungen) */
+export async function updateSettings(patch, { silent = false } = {}) {
   state.settings = { ...state.settings, ...patch, updatedAt: nowISO() };
   await db.write(['meta'], (s) => s.meta.put({ key: 'settings', value: state.settings }));
-  emitChange();
+  if (!silent) emitChange();
 }
 
 /** Nur für dieses Gerät (wird nicht ins Backup übernommen) */
-export async function updateLocal(patch) {
+export async function updateLocal(patch, { silent = false } = {}) {
   state.local = { ...state.local, ...patch };
   await db.write(['meta'], (s) => s.meta.put({ key: 'local', value: state.local }));
-  emitChange();
+  if (!silent) emitChange();
 }
 
 // ---------- Dauerhafter Speicher ----------

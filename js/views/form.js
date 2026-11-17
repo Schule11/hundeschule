@@ -2,10 +2,10 @@
 
 import { h, icon, toast, confirmDialog, openImageViewer, isTouchDevice } from '../ui.js';
 import {
-  categoriesFor, categoryById, saveBooking, deleteBooking, getReceipt, receiptToBlob,
+  state, categoriesFor, categoryById, saveBooking, deleteBooking, getReceipt, receiptToBlob,
 } from '../data.js';
 import { PAYMENT_METHODS } from '../defaults.js';
-import { parseAmount, centsToInput, todayISO, formatMoney, formatDate } from '../format.js';
+import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm } from '../format.js';
 import { resizeImage } from '../image.js';
 
 const GWG_HINT_CENTS = 80000; // ab 800 € Hinweis auf mögliche Abschreibung
@@ -42,7 +42,10 @@ export function openBookingForm(existing = null) {
     receiptBusy: false,
     saving: false,
     dirty: false,
+    mileage: false, // Fahrtkosten-Modus: Kilometer statt Betrag
   };
+  // Kilometerpauschale: bei bestehenden Fahrten die damals gültige, sonst die aktuelle
+  const kmRateCents = existing?.kmRateCents ?? state.settings.kmRateCents;
   const objectUrls = [];
 
   // ---------- Elemente ----------
@@ -62,9 +65,12 @@ export function openBookingForm(existing = null) {
     autocomplete: 'off',
     placeholder: '0,00',
     'aria-label': 'Betrag in Euro',
-    value: existing ? centsToInput(existing.amountCents) : '',
+    value: existing ? (existing.km != null ? formatKm(existing.km) : centsToInput(existing.amountCents)) : '',
     oninput: () => { st.dirty = true; updateAmountHint(); clearError(); },
   });
+  const amountLabel = h('label', { class: 'lbl', for: 'amount' }, 'Betrag');
+  const amountSuffix = h('span', { class: 'amount-suffix', 'aria-hidden': 'true' }, '€');
+  const kmInfo = h('p', { class: 'hint km-info', hidden: true });
   const amountHint = h('p', { class: 'hint warn', hidden: true },
     'Hinweis: Kostet eine Anschaffung (z. B. ein Gerät, das länger als ein Jahr hält) netto mehr als 800 €, '
     + 'muss sie meist über mehrere Jahre abgeschrieben werden. Im Zweifel bei Steuerberatung nachfragen.');
@@ -125,8 +131,9 @@ export function openBookingForm(existing = null) {
       h('div', { class: 'segmented', role: 'group', 'aria-label': 'Art der Buchung' },
         typeButtons.expense, typeButtons.income),
 
-      h('label', { class: 'lbl', for: 'amount' }, 'Betrag'),
-      h('div', { class: 'amount-wrap' }, amountInput, h('span', { class: 'amount-suffix', 'aria-hidden': 'true' }, '€')),
+      amountLabel,
+      h('div', { class: 'amount-wrap' }, amountInput, amountSuffix),
+      kmInfo,
       amountHint,
 
       h('div', { class: 'lbl', id: 'cat-label' }, 'Kategorie'),
@@ -162,6 +169,16 @@ export function openBookingForm(existing = null) {
     if (cat && cat.type !== type) st.categoryId = null;
     updateType();
     renderChips();
+    updateMode();
+  }
+
+  /** Fahrtkosten-Kategorie gewählt? Dann Kilometer statt Betrag eingeben. */
+  function updateMode() {
+    st.mileage = !!categoryById(st.categoryId)?.mileage;
+    amountLabel.textContent = st.mileage ? 'Gefahrene Kilometer' : 'Betrag';
+    amountSuffix.textContent = st.mileage ? 'km' : '€';
+    amountInput.placeholder = st.mileage ? '0' : '0,00';
+    amountInput.setAttribute('aria-label', st.mileage ? 'Gefahrene Kilometer' : 'Betrag in Euro');
     updateAmountHint();
   }
 
@@ -185,8 +202,16 @@ export function openBookingForm(existing = null) {
         st.dirty = true;
         clearError();
         for (const el of chips.children) el.setAttribute('aria-pressed', String(el === e.currentTarget));
-        // Neue Buchung: direkt weiter zur Beschreibung
-        if (!isEdit && !descInput.value) descInput.focus();
+        const wasMileage = st.mileage;
+        updateMode();
+        if (st.mileage && !wasMileage) {
+          // Fahrtkosten: weiter zur Kilometer-Eingabe
+          amountInput.focus();
+          amountInput.select();
+        } else if (!isEdit && !descInput.value) {
+          // Neue Buchung: direkt weiter zur Beschreibung
+          descInput.focus();
+        }
       },
     }, c.name)));
   }
@@ -196,8 +221,15 @@ export function openBookingForm(existing = null) {
   }
 
   function updateAmountHint() {
-    const cents = parseAmount(amountInput.value);
-    amountHint.hidden = !(st.type === 'expense' && cents != null && cents > GWG_HINT_CENTS);
+    const value = parseAmount(amountInput.value);
+    amountHint.hidden = st.mileage || !(st.type === 'expense' && value != null && value > GWG_HINT_CENTS);
+    kmInfo.hidden = !st.mileage;
+    if (st.mileage) {
+      const rate = formatMoney(kmRateCents);
+      kmInfo.textContent = value
+        ? `= ${formatMoney(Math.round((value * kmRateCents) / 100))}  (${formatKm(value / 100)} km × ${rate})`
+        : `Der Betrag wird mit ${rate} pro km berechnet (änderbar in den Einstellungen).`;
+    }
   }
 
   function showError(msg) {
@@ -273,13 +305,25 @@ export function openBookingForm(existing = null) {
 
   async function save() {
     if (st.saving || st.receiptBusy) return;
-    const cents = parseAmount(amountInput.value);
-    if (cents == null || cents <= 0) {
-      showError(amountInput.value.trim() ? 'Bitte einen gültigen Betrag eingeben, z. B. 45,50.' : 'Bitte einen Betrag eingeben.');
-      return;
-    }
-    if (cents > 100000000) { showError('Der Betrag ist ungewöhnlich hoch. Bitte prüfen.'); return; }
     const cat = categoryById(st.categoryId);
+    const value = parseAmount(amountInput.value); // Cent bzw. Hundertstel-Kilometer
+    let cents = value;
+    let km = null;
+    if (cat?.mileage) {
+      if (value == null || value <= 0) {
+        showError(amountInput.value.trim() ? 'Bitte gültige Kilometer eingeben, z. B. 42 oder 12,5.' : 'Bitte die gefahrenen Kilometer eingeben.');
+        return;
+      }
+      if (value > 10000000) { showError('So viele Kilometer? Bitte prüfen.'); return; }
+      km = value / 100;
+      cents = Math.round((value * kmRateCents) / 100);
+    } else {
+      if (value == null || value <= 0) {
+        showError(amountInput.value.trim() ? 'Bitte einen gültigen Betrag eingeben, z. B. 45,50.' : 'Bitte einen Betrag eingeben.');
+        return;
+      }
+      if (value > 100000000) { showError('Der Betrag ist ungewöhnlich hoch. Bitte prüfen.'); return; }
+    }
     if (!cat || cat.type !== st.type) { showError('Bitte eine Kategorie wählen.'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) { showError('Bitte ein Datum wählen.'); return; }
 
@@ -298,6 +342,8 @@ export function openBookingForm(existing = null) {
         categoryId: cat.id,
         description: descInput.value.trim(),
         payment: st.payment,
+        km,
+        kmRateCents: km != null ? kmRateCents : null,
       }, receiptChange);
       setLastType(st.type);
       close();
@@ -361,7 +407,7 @@ export function openBookingForm(existing = null) {
   updateType();
   renderChips();
   updatePayChips();
-  updateAmountHint();
+  updateMode();
   renderReceipt();
 
   document.body.append(sheet);

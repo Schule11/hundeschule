@@ -49,6 +49,11 @@ export function parseAmount(input) {
 
 const pad = (n) => String(n).padStart(2, '0');
 
+/** 12.5 → "12,5", 42 → "42" */
+export function formatKm(km) {
+  return String(Math.round(km * 100) / 100).replace('.', ',');
+}
+
 /** Heutiges Datum als "JJJJ-MM-TT" (lokale Zeit) */
 export function todayISO(d = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

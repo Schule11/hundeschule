@@ -3,7 +3,7 @@
 import { h, icon } from '../ui.js';
 import { categoryName } from '../data.js';
 import { paymentLabel } from '../defaults.js';
-import { formatDate, formatSigned, formatMoney, formatProfit } from '../format.js';
+import { formatDate, formatSigned, formatMoney, formatProfit, formatKm } from '../format.js';
 import { openBookingForm } from './form.js';
 
 /** Eine Zeile in der Buchungsliste – Tippen öffnet die Buchung zum Bearbeiten. */
@@ -11,6 +11,7 @@ export function bookingRow(b) {
   const cat = categoryName(b.categoryId);
   const sub = [formatDate(b.date)];
   if (b.description) sub.push(cat);
+  if (b.km) sub.push(`${formatKm(b.km)} km`);
   if (b.payment) sub.push(paymentLabel(b.payment));
   const kind = b.type === 'income' ? 'Einnahme' : 'Ausgabe';
 

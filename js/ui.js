@@ -163,3 +163,75 @@ export function isStandalone() {
 export function isTouchDevice() {
   return window.matchMedia('(pointer: coarse)').matches;
 }
+
+// ---------- Hell / Dunkel (gilt nur für dieses Gerät) ----------
+
+const THEME_COLORS = { light: '#f6f5f2', dark: '#121212' };
+
+export function getTheme() {
+  try {
+    const t = localStorage.getItem('theme');
+    return t === 'light' || t === 'dark' ? t : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+export function setTheme(theme) {
+  try {
+    if (theme === 'light' || theme === 'dark') localStorage.setItem('theme', theme);
+    else localStorage.removeItem('theme');
+  } catch { /* egal */ }
+  applyTheme();
+}
+
+export function applyTheme() {
+  const theme = getTheme();
+  const root = document.documentElement;
+  if (theme === 'system') delete root.dataset.theme;
+  else root.dataset.theme = theme;
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    if (meta.dataset.media === undefined) {
+      meta.dataset.media = meta.getAttribute('media') || '';
+      meta.dataset.color = meta.content;
+    }
+    if (theme === 'system') {
+      meta.setAttribute('media', meta.dataset.media);
+      meta.content = meta.dataset.color;
+    } else {
+      meta.removeAttribute('media');
+      meta.content = THEME_COLORS[theme];
+    }
+  }
+}
+
+// ---------- Vollbild-Ebene (z. B. Kategorien bearbeiten) ----------
+
+/**
+ * Öffnet eine Vollbild-Ebene mit Titelleiste. Gibt { sheet, body, close } zurück.
+ * leftLabel: Beschriftung des Schließen-Knopfs; right: optionaler Knopf rechts.
+ */
+export function openSheet({ title, leftLabel = 'Zurück', right = null, onClose = null }) {
+  const body = h('div', { class: 'sheet-body' });
+  const onKey = (e) => {
+    if (e.key !== 'Escape' || document.querySelector('dialog[open], .viewer')) return;
+    const sheets = document.querySelectorAll('.sheet');
+    if (sheets[sheets.length - 1] === sheet) close();
+  };
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    sheet.remove();
+    if (!document.querySelector('.sheet')) document.body.classList.remove('sheet-open');
+    if (onClose) onClose();
+  };
+  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+    h('header', { class: 'sheet-bar' },
+      h('button', { type: 'button', class: 'btn-text', onclick: close }, leftLabel),
+      h('h1', { class: 'sheet-title' }, title),
+      right || h('span')),
+    body);
+  document.body.append(sheet);
+  document.body.classList.add('sheet-open');
+  document.addEventListener('keydown', onKey);
+  return { sheet, body, close };
+}

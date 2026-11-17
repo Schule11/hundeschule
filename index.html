@@ -17,6 +17,10 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Gewählte Darstellung (hell/dunkel) sofort anwenden, ohne Aufflackern
+    try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <script type="module" src="js/app.js"></script>
 </head>
 <body>

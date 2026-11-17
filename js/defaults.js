@@ -43,14 +43,13 @@ export function defaultCategoryRecords() {
 
 // Alle Geldbeträge in Cent (ganze Zahlen).
 export const DEFAULT_SETTINGS = {
-  businessName: 'Hundeschule',
+  businessName: 'Hundeschule Marburg',
   kmRateCents: 30,                 // 0,30 € pro gefahrenem Kilometer
   limitPrevYearCents: 2500000,     // 25.000 € Umsatz im Vorjahr
   limitCurrentYearCents: 10000000, // 100.000 € Umsatz im laufenden Jahr
   warnPercent: 80,                 // Hinweis ab 80 % der Grenze
-  prevYearRevenueCents: null,      // Vorjahresumsatz von Hand, falls nicht in der App
-  backupReminderDays: 30,
-  theme: 'system',                 // 'system' | 'light' | 'dark'
+  manualRevenue: {},               // Umsatz von Hand je Jahr, z. B. { "2025": 1200000 }
+  backupReminderDays: 30,          // 0 = keine Erinnerung
   updatedAt: EPOCH,
 };
 

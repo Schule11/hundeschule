@@ -5,7 +5,7 @@
 // Bei jeder Änderung an der App: VERSION erhöhen (und in js/config.js),
 // damit Handys die neuen Dateien laden.
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const CACHE = `hundeschule-${VERSION}`;
 
 const FILES = [
@@ -23,10 +23,12 @@ const FILES = [
   'js/files.js',
   'js/format.js',
   'js/image.js',
+  'js/notices.js',
   'js/pdf.js',
   'js/ui.js',
   'js/yearReport.js',
   'js/views/bookings.js',
+  'js/views/categories.js',
   'js/views/components.js',
   'js/views/form.js',
   'js/views/overview.js',

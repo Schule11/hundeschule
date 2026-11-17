@@ -3,6 +3,8 @@
 import { h, mount } from '../ui.js';
 import { isIOS, isStandalone } from '../ui.js';
 import { state, sumBookings, bookingYears, updateLocal } from '../data.js';
+import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
+import { doExport } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
 import { bookingRow, statBlock, yearSelect } from './components.js';
 
@@ -26,6 +28,8 @@ export function render(root) {
   mount(root,
     h('h1', { class: 'page-title' }, 'Übersicht'),
     installHint(),
+    limitNotices(),
+    backupNotice(),
 
     h('section', { class: 'card', 'aria-label': 'Aktueller Monat' },
       h('div', { class: 'card-head' }, h('h2', { class: 'card-title' }, monthName)),
@@ -51,6 +55,29 @@ export function render(root) {
 function rerender(root) {
   root.replaceChildren();
   render(root);
+}
+
+/** Dezenter Hinweis, wenn sich der Umsatz der Kleinunternehmergrenze nähert */
+function limitNotices() {
+  return smallBusinessStatus().notices.map((n) => h('div', { class: `notice${n.level === 'alert' ? ' alert' : ''}` },
+    h('strong', null, n.title),
+    h('p', null, n.text),
+    h('a', { href: '#/einstellungen', class: 'btn-text', style: 'display:inline-block' }, 'Grenzen in den Einstellungen')));
+}
+
+/** Erinnerung an ein Backup */
+function backupNotice() {
+  const due = backupDue();
+  if (!due) return null;
+  const btn = h('button', { type: 'button', class: 'btn primary', onclick: () => doExport(btn) }, 'Backup erstellen');
+  return h('div', { class: 'notice' },
+    h('strong', null, 'Zeit für ein Backup'),
+    h('p', null, due.last
+      ? `Dein letztes Backup ist ${due.ageDays} Tage alt und seitdem hat sich etwas geändert.`
+      : 'Du hast noch kein Backup gemacht. Sichere deine Daten, damit nichts verloren geht.'),
+    h('div', { class: 'notice-actions' },
+      btn,
+      h('button', { type: 'button', class: 'btn-text', onclick: () => updateLocal({ backupSnoozeUntil: snoozeUntil(3) }) }, 'Später')));
 }
 
 /** Auf dem iPhone im Safari-Tab: Hinweis, die App zum Home-Bildschirm hinzuzufügen. */
