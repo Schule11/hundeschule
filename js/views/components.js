@@ -1,16 +1,52 @@
 // Wiederverwendbare Bausteine für mehrere Bildschirme.
 
-import { h, icon } from '../ui.js';
-import { categoryName, contactById, contactLabel } from '../data.js';
+import { h, icon, toast } from '../ui.js';
+import { categoryName, contactById, contactLabel, isOpen, daysOpen, isOverdue, markPaid, saveBooking } from '../data.js';
 import { paymentLabel } from '../defaults.js';
 import { formatDate, formatSigned, formatMoney, formatProfit, formatKm } from '../format.js';
 import { openBookingForm } from './form.js';
+
+/** Offene Einnahme abhaken – mit "Rückgängig" */
+export async function tickPaid(b) {
+  const previous = await markPaid(b.id);
+  if (!previous) return;
+  toast('Als bezahlt markiert', { action: { label: 'Rückgängig', onClick: () => saveBooking(previous) } });
+}
+
+/** Zeile für eine offene Einnahme: links zum Abhaken, rechts zum Bearbeiten */
+function openRow(b, title, cat, person) {
+  const days = daysOpen(b);
+  const overdue = isOverdue(b);
+  const sub = [formatDate(b.serviceDate || b.date)];
+  if (title !== cat) sub.push(cat);
+  if (person && title !== person) sub.push(person);
+  const age = days === 0 ? 'seit heute offen' : days === 1 ? 'seit 1 Tag offen' : `seit ${days} Tagen offen`;
+  return h('div', { class: `row open-row${overdue ? ' overdue' : ''}` },
+    h('button', {
+      type: 'button',
+      class: 'check',
+      'aria-label': `${title}, ${formatMoney(b.amountCents)}: als bezahlt abhaken`,
+      onclick: () => tickPaid(b),
+    }),
+    h('button', {
+      type: 'button',
+      class: 'row-body',
+      'aria-label': `Offene Einnahme ${formatMoney(b.amountCents)}, ${title}, ${age}. Bearbeiten`,
+      onclick: () => openBookingForm(b),
+    },
+    h('div', { class: 'row-main' },
+      h('div', { class: 'row-title' }, title),
+      h('div', { class: 'row-sub' }, sub.join(' · ')),
+      h('div', { class: `row-age${overdue ? ' neg' : ''}` }, age)),
+    h('div', { class: 'amt open' }, formatMoney(b.amountCents))));
+}
 
 /** Eine Zeile in der Buchungsliste – Tippen öffnet die Buchung zum Bearbeiten. */
 export function bookingRow(b) {
   const cat = categoryName(b.categoryId);
   const person = contactLabel(contactById(b.personId));
   const title = b.description || person || cat;
+  if (isOpen(b)) return openRow(b, title, cat, person);
   const sub = [formatDate(b.date)];
   if (title !== cat) sub.push(cat);
   if (person && title !== person) sub.push(person);

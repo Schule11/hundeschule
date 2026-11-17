@@ -59,19 +59,29 @@ export function icon(name, size = 22) {
 
 let toastTimer = null;
 
-export function toast(message) {
+/** Kurze Meldung; optional mit Knopf, z. B. { action: { label: 'Rückgängig', onClick } } */
+export function toast(message, { action = null } = {}) {
   let el = document.querySelector('.toast');
   if (!el) {
     el = h('div', { class: 'toast', role: 'status', 'aria-live': 'polite' });
     document.body.append(el);
   }
-  el.textContent = message;
+  const hide = () => el.classList.remove('show', 'has-action');
+  el.replaceChildren(h('span', null, message));
+  if (action) {
+    el.append(h('button', {
+      type: 'button',
+      class: 'toast-action',
+      onclick: () => { hide(); action.onClick(); },
+    }, action.label));
+  }
   // Neustart der Einblendung
   el.classList.remove('show');
   void el.offsetWidth;
   el.classList.add('show');
+  el.classList.toggle('has-action', !!action);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  toastTimer = setTimeout(hide, action ? 6000 : 2800);
 }
 
 // ---------- Dialoge ----------

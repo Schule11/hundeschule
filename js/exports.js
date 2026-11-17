@@ -182,6 +182,11 @@ export function reportPdf(year) {
   resRow('Betriebsausgaben', formatMoney(r.totals.expense), y + 35);
   resRow(r.totals.profit < 0 ? 'Verlust' : 'Gewinn', formatProfit(r.totals.profit), y + 56, { bold: true, color: r.totals.profit < 0 ? RED : [0, 0, 0] });
   y += 66;
+  if (r.open.count) {
+    y += 14;
+    pdf.text(`Nicht enthalten: ${r.open.count} noch offene ${r.open.count === 1 ? 'Zahlung' : 'Zahlungen'} über ${formatMoney(r.open.cents)} `
+      + '(zählen erst im Jahr, in dem das Geld eingeht).', M, y, { size: 8.5, color: GREY, maxWidth: R - M });
+  }
 
   if (!r.bookings.length) {
     y += 30;

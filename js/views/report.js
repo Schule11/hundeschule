@@ -33,10 +33,22 @@ export function render(root) {
         yearSelect(years, selectedYear, (v) => { selectedYear = Number(v); rerender(); }))),
     statBlock(r.totals, { income: 'Betriebseinnahmen', expense: 'Betriebsausgaben' }));
 
+  // Hinweis: offene Einnahmen sind nicht enthalten
+  const openNote = r.open.count
+    ? h('button', {
+      type: 'button',
+      class: 'notice notice-button',
+      onclick: () => showBookings({ type: 'open' }),
+    },
+    h('strong', null, `${r.open.count} offene ${r.open.count === 1 ? 'Zahlung' : 'Zahlungen'} (${formatMoney(r.open.cents)}) nicht enthalten`),
+    h('span', null, 'Sie zählen erst, wenn das Geld eingegangen ist – und zwar im Jahr der Zahlung. Antippen zum Anzeigen.'))
+    : null;
+
   if (!r.bookings.length) {
     mount(root,
       h('h1', { class: 'page-title' }, 'Auswertung'),
       head,
+      openNote,
       h('div', { class: 'empty' },
         h('strong', null, `Keine Buchungen in ${selectedYear}`),
         'Sobald du Buchungen erfasst hast, siehst du hier die Summen für die Anlage EÜR.'));
@@ -108,6 +120,7 @@ export function render(root) {
   mount(root,
     h('h1', { class: 'page-title' }, 'Auswertung'),
     head,
+    openNote,
     h('h2', { class: 'section-title' }, 'Für die Anlage EÜR'),
     euer,
     r.categories.income.length ? [h('h2', { class: 'section-title' }, 'Einnahmen nach Kategorie'), catCard(r.categories.income)] : null,

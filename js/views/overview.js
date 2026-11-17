@@ -2,7 +2,9 @@
 
 import { h, mount } from '../ui.js';
 import { isIOS, isStandalone } from '../ui.js';
-import { state, sumBookings, bookingYears, updateLocal } from '../data.js';
+import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, isOverdue } from '../data.js';
+import { formatMoney } from '../format.js';
+import { showBookings } from './bookings.js';
 import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
 import { doExport } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
@@ -28,6 +30,7 @@ export function render(root) {
   mount(root,
     h('h1', { class: 'page-title' }, 'Übersicht'),
     installHint(),
+    openPayments(),
     limitNotices(),
     backupNotice(),
 
@@ -55,6 +58,28 @@ export function render(root) {
 function rerender(root) {
   root.replaceChildren();
   render(root);
+}
+
+/** Offene Zahlungen zum Abhaken – ganz oben, überfällige rot markiert */
+function openPayments() {
+  const list = openBookings();
+  if (!list.length) return null;
+  const overdue = list.filter(isOverdue).length;
+  const days = state.settings.paymentReminderDays || 14;
+  const shown = list.slice(0, 5);
+  return h('section', { class: 'open-section', 'aria-label': 'Offene Zahlungen' },
+    h('div', { class: 'open-head' },
+      h('h2', null, `Offene Zahlungen (${list.length})`),
+      h('span', { class: 'amt open' }, formatMoney(sumOpen(list)))),
+    overdue
+      ? h('p', { class: 'overdue-note' },
+        `${overdue} ${overdue === 1 ? 'Zahlung ist' : 'Zahlungen sind'} seit ${days} Tagen oder länger offen – Zeit für eine Erinnerung.`)
+      : h('p', { class: 'hint', style: 'margin: 0 4px 10px' }, 'Kreis antippen, sobald bezahlt wurde.'),
+    h('div', { class: 'rows' }, shown.map(bookingRow)),
+    list.length > shown.length
+      ? h('p', { style: 'text-align:center; margin: 8px 0 0' },
+        h('button', { type: 'button', class: 'btn-text', onclick: () => showBookings({ type: 'open' }) }, `Alle ${list.length} offenen anzeigen`))
+      : null);
 }
 
 /** Dezenter Hinweis, wenn sich der Umsatz der Kleinunternehmergrenze nähert */

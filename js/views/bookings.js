@@ -1,9 +1,9 @@
 // Bildschirm "Buchungen": Liste nach Monaten, mit Suche und Filtern.
 
 import { h, mount } from '../ui.js';
-import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears, contactById, contactLabel } from '../data.js';
+import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears, contactById, contactLabel, isOpen, sumOpen } from '../data.js';
 import { paymentLabel } from '../defaults.js';
-import { formatSigned, formatDate, centsToInput, monthLabel, normalizeText } from '../format.js';
+import { formatSigned, formatMoney, formatDate, centsToInput, monthLabel, normalizeText } from '../format.js';
 import { bookingRow, yearSelect } from './components.js';
 
 // Filter bleiben erhalten, solange die App offen ist
@@ -17,6 +17,7 @@ const filters = {
 
 /** Liste mit Filter öffnen (z. B. aus der Auswertung: "alle Buchungen dieser Kategorie") */
 export function showBookings({ year = 'all', type = 'all', category = 'all', person = null } = {}) {
+  if (type === 'open') year = 'all';
   Object.assign(filters, { year, type, category, person, q: '' });
   location.hash = '#/buchungen';
 }
@@ -52,7 +53,8 @@ export function render(root) {
   },
   h('option', { value: 'all' }, 'Alle'),
   h('option', { value: 'income' }, 'Einnahmen'),
-  h('option', { value: 'expense' }, 'Ausgaben'));
+  h('option', { value: 'expense' }, 'Ausgaben'),
+  h('option', { value: 'open' }, 'Offen'));
   typeSel.value = filters.type;
 
   const catSel = h('select', {
@@ -61,9 +63,12 @@ export function render(root) {
     onchange: (e) => { filters.category = e.target.value; renderResults(); },
   });
 
+  // "Offen" sind immer Einnahmen
+  const catType = () => (filters.type === 'open' ? 'income' : filters.type);
+
   function matchesCategoryType(catId) {
     if (filters.type === 'all') return true;
-    return categoriesFor(filters.type).some((c) => c.id === catId);
+    return categoriesFor(catType()).some((c) => c.id === catId);
   }
 
   function fillCategories() {
@@ -73,8 +78,8 @@ export function render(root) {
       if (!cats.length) return;
       groups.push(h('optgroup', { label }, cats.map((c) => h('option', { value: c.id }, c.name))));
     };
-    if (filters.type !== 'expense') add('income', 'Einnahmen');
-    if (filters.type !== 'income') add('expense', 'Ausgaben');
+    if (catType() !== 'expense') add('income', 'Einnahmen');
+    if (catType() !== 'income') add('expense', 'Ausgaben');
     catSel.replaceChildren(h('option', { value: 'all' }, 'Alle Kategorien'), ...groups);
     catSel.value = filters.category;
     if (catSel.value !== filters.category) { filters.category = 'all'; catSel.value = 'all'; }
@@ -84,7 +89,7 @@ export function render(root) {
     const q = normalizeText(filters.q);
     return state.bookings.filter((b) => {
       if (filters.year !== 'all' && b.date.slice(0, 4) !== filters.year) return false;
-      if (filters.type !== 'all' && b.type !== filters.type) return false;
+      if (filters.type === 'open' ? !isOpen(b) : (filters.type !== 'all' && b.type !== filters.type)) return false;
       if (filters.category !== 'all' && b.categoryId !== filters.category) return false;
       if (filters.person && (b.personId || 'none') !== filters.person) return false;
       if (q) {
@@ -113,6 +118,12 @@ export function render(root) {
         'Tippe unten rechts auf +, um die erste Einnahme oder Ausgabe einzutragen.'));
       return;
     }
+    if (!list.length && filters.type === 'open' && !filters.q && filters.category === 'all' && !filters.person) {
+      results.replaceChildren(h('div', { class: 'empty' },
+        h('strong', null, 'Keine offenen Zahlungen'),
+        'Alles bezahlt.'));
+      return;
+    }
     if (!list.length) {
       results.replaceChildren(h('div', { class: 'empty' },
         h('strong', null, 'Nichts gefunden'),
@@ -131,6 +142,8 @@ export function render(root) {
     const summaryParts = [`${list.length} ${list.length === 1 ? 'Buchung' : 'Buchungen'}`];
     if (total.income) summaryParts.push(h('span', { class: 'num pos' }, formatSigned(total.income, 'income')));
     if (total.expense) summaryParts.push(h('span', { class: 'num neg' }, formatSigned(total.expense, 'expense')));
+    const openTotal = sumOpen(list);
+    if (openTotal) summaryParts.push(h('span', { class: 'num amt open' }, `offen ${formatMoney(openTotal)}`));
 
     results.replaceChildren(
       h('p', { class: 'list-summary' }, summaryParts.flatMap((p, i) => (i ? [' · ', p] : [p]))),

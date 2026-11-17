@@ -23,6 +23,12 @@ function getLastType() {
 function setLastType(type) {
   try { localStorage.setItem('lastType', type); } catch { /* egal */ }
 }
+function getLastPaid() {
+  try { return localStorage.getItem('lastPaid') !== 'open'; } catch { return true; }
+}
+function setLastPaid(paid) {
+  try { localStorage.setItem('lastPaid', paid ? 'paid' : 'open'); } catch { /* egal */ }
+}
 
 /**
  * Öffnet das Formular. WICHTIG: Muss direkt im Klick-Handler aufgerufen
@@ -44,6 +50,10 @@ export function openBookingForm(existing = null) {
     saving: false,
     dirty: false,
     mileage: false, // Fahrtkosten-Modus: Kilometer statt Betrag
+    // Einnahme schon bezahlt? (Ausgaben sind immer bezahlt)
+    paid: existing ? existing.paid !== false : getLastPaid(),
+    // Datum der Stunde zusätzlich zeigen, wenn die Buchung offen war/ist
+    showService: !!existing?.serviceDate || existing?.paid === false,
   };
   // Kilometerpauschale: bei bestehenden Fahrten die damals gültige, sonst die aktuelle
   const kmRateCents = existing?.kmRateCents ?? state.settings.kmRateCents;
@@ -98,14 +108,38 @@ export function openBookingForm(existing = null) {
     },
   });
 
+  // Zahlungsdatum (zählt für die EÜR)
   const dateInput = h('input', {
     class: 'field',
     id: 'date',
     type: 'date',
     required: true,
-    value: existing?.date || todayISO(),
+    value: existing && existing.paid !== false ? existing.date : todayISO(),
     onchange: () => { st.dirty = true; clearError(); },
   });
+  const dateWrap = h('div', null, h('label', { class: 'lbl', for: 'date' }, 'Datum der Zahlung'), dateInput);
+
+  // Datum der Stunde (bei offenen Einnahmen)
+  const serviceInput = h('input', {
+    class: 'field',
+    id: 'service-date',
+    type: 'date',
+    value: existing?.serviceDate || existing?.date || todayISO(),
+    onchange: () => { st.dirty = true; clearError(); },
+  });
+  const serviceWrap = h('div', null, h('label', { class: 'lbl', for: 'service-date' }, 'Datum der Stunde'), serviceInput);
+
+  // Bezahlt / noch offen (nur Einnahmen)
+  const statusButtons = {
+    paid: h('button', { type: 'button', onclick: () => setPaid(true) }, 'Bezahlt'),
+    open: h('button', { type: 'button', onclick: () => setPaid(false) }, 'Noch offen'),
+  };
+  const openHint = h('p', { class: 'hint' },
+    'Die Einnahme erscheint unter „Offene Zahlungen“ und zählt erst zum Gewinn, wenn du sie als bezahlt abhakst.');
+  const statusWrap = h('div', null,
+    h('div', { class: 'lbl' }, 'Zahlung'),
+    h('div', { class: 'segmented segmented-status', role: 'group', 'aria-label': 'Zahlung' }, statusButtons.paid, statusButtons.open),
+    openHint);
 
   const payChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Zahlungsart' },
     PAYMENT_METHODS.map((p) => h('button', {
@@ -118,6 +152,8 @@ export function openBookingForm(existing = null) {
         updatePayChips();
       },
     }, p.label)));
+
+  const payWrap = h('div', null, h('div', { class: 'lbl' }, 'Zahlungsart (optional)'), payChips);
 
   const fileInput = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: onFileChosen });
   const receiptRow = h('div', { class: 'receipt-row' });
@@ -149,11 +185,10 @@ export function openBookingForm(existing = null) {
       h('label', { class: 'lbl', for: 'desc' }, 'Beschreibung'),
       descInput,
 
-      h('label', { class: 'lbl', for: 'date' }, 'Datum der Zahlung'),
-      dateInput,
-
-      h('div', { class: 'lbl' }, 'Zahlungsart (optional)'),
-      payChips,
+      statusWrap,
+      serviceWrap,
+      dateWrap,
+      payWrap,
 
       h('div', { class: 'lbl' }, 'Beleg (optional)'),
       receiptRow,
@@ -197,6 +232,29 @@ export function openBookingForm(existing = null) {
     const word = st.type === 'income' ? 'Einnahme' : 'Ausgabe';
     title.textContent = isEdit ? `${word} bearbeiten` : `Neue ${word}`;
     personLabel.textContent = st.type === 'income' ? 'Kund:in (optional)' : 'Kund:in (optional, z. B. bei Fahrten)';
+    updateStatus();
+  }
+
+  function setPaid(paid) {
+    if (st.paid === paid) return;
+    st.paid = paid;
+    st.dirty = true;
+    if (!paid) st.showService = true;
+    updateStatus();
+  }
+
+  function isOpenEntry() { return st.type === 'income' && !st.paid; }
+
+  function updateStatus() {
+    const income = st.type === 'income';
+    const open = isOpenEntry();
+    statusWrap.hidden = !income;
+    statusButtons.paid.setAttribute('aria-pressed', String(!open));
+    statusButtons.open.setAttribute('aria-pressed', String(open));
+    openHint.hidden = !open;
+    serviceWrap.hidden = !(open || (income && st.showService));
+    dateWrap.hidden = open;
+    payWrap.hidden = open;
   }
 
   function renderChips() {
@@ -340,7 +398,11 @@ export function openBookingForm(existing = null) {
       if (value > 100000000) { showError('Der Betrag ist ungewöhnlich hoch. Bitte prüfen.'); return; }
     }
     if (!cat || cat.type !== st.type) { showError('Bitte eine Kategorie wählen.'); return; }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) { showError('Bitte ein Datum wählen.'); return; }
+    const DATE = /^\d{4}-\d{2}-\d{2}$/;
+    const open = isOpenEntry();
+    const withService = open || (st.type === 'income' && st.showService);
+    if (withService && !DATE.test(serviceInput.value)) { showError('Bitte das Datum der Stunde wählen.'); return; }
+    if (!open && !DATE.test(dateInput.value)) { showError('Bitte das Datum der Zahlung wählen.'); return; }
 
     st.saving = true;
     saveBtn.disabled = true;
@@ -356,18 +418,22 @@ export function openBookingForm(existing = null) {
       await saveBooking({
         id: existing?.id,
         type: st.type,
-        date: dateInput.value,
+        // Offen: Datum der Stunde (bis zur Zahlung). Bezahlt: Datum der Zahlung.
+        date: open ? serviceInput.value : dateInput.value,
+        paid: !open,
+        serviceDate: withService ? serviceInput.value : null,
         amountCents: cents,
         categoryId: cat.id,
         description: descInput.value.trim(),
-        payment: st.payment,
+        payment: open ? null : st.payment,
         km,
         kmRateCents: km != null ? kmRateCents : null,
         personId,
       }, receiptChange);
       setLastType(st.type);
+      if (!isEdit && st.type === 'income') setLastPaid(!open);
       close();
-      toast(isEdit ? 'Änderung gespeichert' : `${st.type === 'income' ? 'Einnahme' : 'Ausgabe'} gespeichert`);
+      toast(isEdit ? 'Änderung gespeichert' : open ? 'Offene Einnahme gespeichert' : `${st.type === 'income' ? 'Einnahme' : 'Ausgabe'} gespeichert`);
     } catch (err) {
       console.error(err);
       showError(`Speichern hat nicht geklappt: ${err.message || err}`);

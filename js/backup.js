@@ -111,6 +111,8 @@ function sanitize(data) {
       payment: ['cash', 'transfer', 'paypal'].includes(b.payment) ? b.payment : null,
       receiptId: typeof b.receiptId === 'string' ? b.receiptId : null,
       personId: typeof b.personId === 'string' ? b.personId : null,
+      paid: !(b.type === 'income' && b.paid === false),
+      serviceDate: DATE_RE.test(b.serviceDate) ? b.serviceDate : null,
       km: typeof b.km === 'number' && b.km >= 0 ? b.km : null,
       kmRateCents: Number.isSafeInteger(b.kmRateCents) ? b.kmRateCents : null,
       createdAt: str(b.createdAt) || nowISO(),

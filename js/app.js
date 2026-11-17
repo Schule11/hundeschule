@@ -3,6 +3,7 @@
 import { load, onChange } from './data.js';
 import { h, toast, applyTheme } from './ui.js';
 import { APP_VERSION } from './config.js';
+import { updateBadge } from './badge.js';
 import { openBookingForm, isFormOpen, onFormClosed } from './views/form.js';
 import * as overview from './views/overview.js';
 import * as bookings from './views/bookings.js';
@@ -50,8 +51,9 @@ async function boot() {
   }
 
   render();
+  updateBadge();
   window.addEventListener('hashchange', () => render());
-  onChange(() => render({ keepScroll: true }));
+  onChange(() => { render({ keepScroll: true }); updateBadge(); });
 
   // Großer Plus-Button: Formular sofort öffnen (ohne Verzögerung, wegen iPhone-Tastatur)
   document.getElementById('fab').addEventListener('click', () => openBookingForm());

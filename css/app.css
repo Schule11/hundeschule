@@ -503,6 +503,77 @@ select.field {
 
 .form-actions { margin-top: 30px; display: grid; gap: 6px; }
 
+/* ---------- Offene Zahlungen ---------- */
+
+.open-section { margin-bottom: 20px; }
+
+.open-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 4px 4px 8px;
+}
+
+.open-head h2 { font-size: 20px; font-weight: 700; margin: 0; }
+
+.overdue-note {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--expense-soft);
+  color: var(--expense);
+  font-weight: 600;
+  font-size: 15.5px;
+}
+
+.open-row { padding: 0; gap: 0; align-items: stretch; }
+
+.open-row .check {
+  flex: none;
+  width: 58px;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+}
+
+.open-row .check::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid var(--accent);
+  box-sizing: border-box;
+}
+
+.open-row .check:active::before { background: var(--accent); }
+.open-row.overdue .check::before { border-color: var(--expense); }
+
+.open-row .row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 12px 16px 12px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.row-age { font-size: 13.5px; color: var(--muted); }
+.row-age.neg { color: var(--expense); font-weight: 650; }
+.amt.open { color: var(--accent-ink); }
+
+.segmented-status button[aria-pressed="true"]:first-child { background: var(--income-fill); color: var(--on-income); }
+.segmented-status button[aria-pressed="true"]:last-child { background: var(--accent); color: var(--on-accent); }
+
+.notice-button { display: block; width: 100%; text-align: left; color: inherit; }
+.notice-button span { display: block; }
+
 /* ---------- Kund:in-Auswahl ---------- */
 
 .person-suggestions { margin-bottom: 10px; }
@@ -821,6 +892,18 @@ dialog.dlg::backdrop { background: rgba(0, 0, 0, 0.45); }
 }
 
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.has-action { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 20px; }
+.toast.show.has-action { pointer-events: auto; }
+
+.toast-action {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .sheet { animation: none; }

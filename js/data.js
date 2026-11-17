@@ -5,6 +5,7 @@
 
 import * as db from './db.js';
 import { DEFAULT_SETTINGS, defaultCategoryRecords } from './defaults.js';
+import { todayISO } from './format.js';
 
 /**
  * Buchung:
@@ -15,6 +16,10 @@ import { DEFAULT_SETTINGS, defaultCategoryRecords } from './defaults.js';
  *   receiptId: ID des Belegfotos oder null,
  *   km: Zahl oder null, kmRateCents: Integer oder null   (nur Fahrtkosten),
  *   personId: ID der Kundin / des Kunden oder null,
+ *   paid: false = Einnahme noch offen (fehlt/true = bezahlt). Offene Einnahmen zählen
+ *         NICHT zu Summen, EÜR und Umsatz – erst wenn das Geld da ist (Zuflussprinzip).
+ *   serviceDate: Datum der Stunde/Leistung (bei offenen Einnahmen), sonst null.
+ *         Bei offenen Einnahmen ist `date` = Datum der Stunde, nach dem Abhaken = Zahlungsdatum.
  *   createdAt, updatedAt
  * }
  */
@@ -228,7 +233,7 @@ export function findContactByName(name) {
 
 export function contactStats(id) {
   const list = state.bookings.filter((b) => b.personId === id);
-  return { count: list.length, ...sumBookings(list) };
+  return { count: list.length, ...sumBookings(list), open: sumOpen(list) };
 }
 
 export async function saveContact(input, { silent = false } = {}) {
@@ -274,7 +279,7 @@ export function revenueFor(year) {
   const manual = state.settings.manualRevenue?.[String(year)];
   if (Number.isSafeInteger(manual)) return { cents: manual, manual: true };
   const cents = state.bookings
-    .filter((b) => b.type === 'income' && b.date.startsWith(String(year)))
+    .filter((b) => b.type === 'income' && !isOpen(b) && b.date.startsWith(String(year)))
     .reduce((sum, b) => sum + b.amountCents, 0);
   return { cents, manual: false };
 }
@@ -287,11 +292,54 @@ export function sortBookings(list) {
     a.date !== b.date ? (a.date < b.date ? 1 : -1) : (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-/** Summen einer Liste: { income, expense, profit } in Cent */
+// ---------- Offene Zahlungen ----------
+
+/** Einnahme, die noch nicht bezahlt ist */
+export function isOpen(b) {
+  return b.type === 'income' && b.paid === false;
+}
+
+/** Alle offenen Einnahmen, älteste zuerst */
+export function openBookings() {
+  return state.bookings
+    .filter(isOpen)
+    .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.createdAt < b.createdAt ? -1 : 1)));
+}
+
+/** Seit wie vielen Tagen ist die Einnahme offen (ab Datum der Stunde)? */
+export function daysOpen(b, today = todayISO()) {
+  const from = Date.UTC(...(b.serviceDate || b.date).split('-').map((n, i) => Number(n) - (i === 1 ? 1 : 0)));
+  const to = Date.UTC(...today.split('-').map((n, i) => Number(n) - (i === 1 ? 1 : 0)));
+  return Math.max(0, Math.round((to - from) / 86400000));
+}
+
+export function isOverdue(b) {
+  return isOpen(b) && daysOpen(b) >= (state.settings.paymentReminderDays || 14);
+}
+
+/** Summe offener Einnahmen in Cent */
+export function sumOpen(list) {
+  return list.reduce((sum, b) => sum + (isOpen(b) ? b.amountCents : 0), 0);
+}
+
+/**
+ * Als bezahlt abhaken: Zahlungsdatum = heute (änderbar in der Buchung).
+ * Gibt den vorherigen Stand zurück (für "Rückgängig").
+ */
+export async function markPaid(id, date = todayISO()) {
+  const b = state.bookings.find((x) => x.id === id);
+  if (!b || !isOpen(b)) return null;
+  const previous = { ...b };
+  await saveBooking({ id, paid: true, serviceDate: b.serviceDate || b.date, date });
+  return previous;
+}
+
+/** Summen einer Liste: { income, expense, profit } in Cent – ohne offene Einnahmen */
 export function sumBookings(list) {
   let income = 0;
   let expense = 0;
   for (const b of list) {
+    if (isOpen(b)) continue;
     if (b.type === 'income') income += b.amountCents;
     else expense += b.amountCents;
   }
@@ -316,6 +364,8 @@ export async function saveBooking(input, receiptChange = null) {
     kmRateCents: null,
     receiptId: null,
     personId: null,
+    paid: true,
+    serviceDate: null,
     ...existing,
     ...input,
     id: existing?.id || uid('b'),

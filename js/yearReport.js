@@ -1,7 +1,7 @@
 // Berechnet die Jahresauswertung – genutzt vom Bildschirm "Auswertung",
 // vom CSV- und vom PDF-Export. So stimmen alle drei immer überein.
 
-import { state, categoryById, sumBookings, contactById, contactLabel } from './data.js';
+import { state, categoryById, sumBookings, contactById, contactLabel, isOpen } from './data.js';
 import { euerPostenFor, euerOrder } from './defaults.js';
 
 /**
@@ -15,8 +15,9 @@ import { euerPostenFor, euerOrder } from './defaults.js';
  */
 export function yearReport(year) {
   const y = String(year);
+  // Nur bezahlte Buchungen – offene Einnahmen zählen erst im Jahr der Zahlung
   const bookings = state.bookings
-    .filter((b) => b.date.startsWith(y))
+    .filter((b) => !isOpen(b) && b.date.startsWith(y))
     .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.createdAt < b.createdAt ? -1 : 1)));
 
   const totals = sumBookings(bookings);
@@ -86,5 +87,9 @@ export function yearReport(year) {
     ? [...byPerson.values()].sort((a, b) => (a.id === 'none') - (b.id === 'none') || b.cents - a.cents)
     : [];
 
-  return { year: Number(year), bookings, totals, categories, posten, months, persons };
+  // Offene Einnahmen mit Stunde in diesem Jahr (nur zur Info, nicht enthalten)
+  const openList = state.bookings.filter((b) => isOpen(b) && (b.serviceDate || b.date).startsWith(y));
+  const open = { count: openList.length, cents: openList.reduce((s, b) => s + b.amountCents, 0) };
+
+  return { year: Number(year), bookings, totals, categories, posten, months, persons, open };
 }

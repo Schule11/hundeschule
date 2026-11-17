@@ -13,6 +13,7 @@ import { saveFile, prefersShare } from '../files.js';
 import { smallBusinessStatus } from '../notices.js';
 import { openCategoryList } from './categories.js';
 import { openContactList } from './contacts.js';
+import { badgeSupported, enableBadge } from '../badge.js';
 
 const plain = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 const euroPlain = (cents) => plain.format(cents / 100); // 2500000 → "25.000"
@@ -162,6 +163,48 @@ export function render(root) {
           h('div', { class: 'row-title' }, 'Kund:innen'),
           h('div', { class: 'row-sub' }, `${state.contacts.length} gespeichert`)),
         h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'))),
+
+    h('h2', { class: 'section-title' }, 'Offene Zahlungen'),
+    h('section', { class: 'card' },
+      settingField({
+        id: 'set-pay-days', label: 'Erinnern, wenn offen seit', unit: 'Tagen', inputmode: 'numeric',
+        value: String(s.paymentReminderDays ?? 14),
+        hint: 'Danach wird die Zahlung auf der Übersicht rot markiert.',
+        onSave: async (v) => {
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 1 || n > 365) return invalid('Bitte eine ganze Zahl zwischen 1 und 365 eingeben.');
+          await updateSettings({ paymentReminderDays: n }, { silent: true });
+          return String(n);
+        },
+      }),
+      badgeSupported()
+        ? (() => {
+          const box = h('input', {
+            type: 'checkbox',
+            id: 'set-badge',
+            checked: !!state.local.appBadge,
+            onchange: async () => {
+              const ok = await enableBadge(box.checked);
+              if (!ok) {
+                box.checked = false;
+                alertDialog({
+                  title: 'Erlaubnis fehlt',
+                  text: 'Für die Zahl am App-Symbol braucht die App die Erlaubnis für Mitteilungen '
+                    + '(sie verschickt trotzdem keine). Du kannst sie in den iPhone-Einstellungen unter „Mitteilungen“ → „Hundeschule“ erlauben.',
+                });
+              } else {
+                toast(box.checked ? 'Zahl am App-Symbol an' : 'Zahl am App-Symbol aus');
+              }
+            },
+          });
+          return h('label', { class: 'switch-row', for: 'set-badge' },
+            h('span', null,
+              h('strong', null, 'Zahl am App-Symbol'),
+              h('span', { class: 'hint', style: 'display:block; margin: 2px 0 0' },
+                'Zeigt auf dem Home-Bildschirm, wie viele Zahlungen offen sind.')),
+            box);
+        })()
+        : h('p', { class: 'hint' }, 'Die Zahl offener Zahlungen am App-Symbol gibt es nur in der installierten App (iPhone ab iOS 16.4).')),
 
     h('h2', { class: 'section-title' }, 'Fahrtkosten'),
     h('section', { class: 'card' },

@@ -50,6 +50,7 @@ export const DEFAULT_SETTINGS = {
   warnPercent: 80,                 // Hinweis ab 80 % der Grenze
   manualRevenue: {},               // Umsatz von Hand je Jahr, z. B. { "2025": 1200000 }
   backupReminderDays: 30,          // 0 = keine Erinnerung
+  paymentReminderDays: 14,         // offene Zahlung gilt danach als überfällig
   updatedAt: EPOCH,
 };
 

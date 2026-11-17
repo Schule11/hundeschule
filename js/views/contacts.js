@@ -4,7 +4,7 @@ import { h, toast, openSheet, confirmDialog } from '../ui.js';
 import {
   onChange, contactsSorted, contactLabel, contactStats, saveContact, deleteContact, findContactByName,
 } from '../data.js';
-import { formatSigned, normalizeText } from '../format.js';
+import { formatSigned, formatMoney, normalizeText } from '../format.js';
 import { showBookings } from './bookings.js';
 
 export function openContactList() {
@@ -36,6 +36,7 @@ export function openContactList() {
     list.replaceChildren(h('div', { class: 'rows' }, shown.map((c) => {
       const s = contactStats(c.id);
       const sub = [`${s.count} ${s.count === 1 ? 'Buchung' : 'Buchungen'}`];
+      if (s.open) sub.push(`offen ${formatMoney(s.open)}`);
       return h('button', { type: 'button', class: 'row', onclick: () => openContactEditor(c, close) },
         h('div', { class: 'row-main' },
           h('div', { class: 'row-title' }, c.name),

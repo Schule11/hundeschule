@@ -30,8 +30,8 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 | Bereich | Was du dort machst |
 |---|---|
 | **+ (großer Knopf)** | Neue Buchung: Betrag, Kategorie, optional Kund:in, Beschreibung, Datum, Zahlungsart, Belegfoto |
-| **Übersicht** | Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise (Backup, Kleinunternehmergrenze) |
-| **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter; antippen zum Bearbeiten oder Löschen |
+| **Übersicht** | Offene Zahlungen zum Abhaken, Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise |
+| **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
 | **Einstellungen** | Name, Kategorien, Kund:innen, Kilometerpauschale, Kleinunternehmergrenzen, Backup, hell/dunkel |
 
@@ -44,6 +44,19 @@ von wem das Geld kommt. Die zuletzt benutzten Namen stehen als Knöpfe bereit; b
 Ein neuer Name wird beim Speichern automatisch angelegt. Unter *Einstellungen → Kund:innen* kannst du Namen
 ändern, einen Hundenamen ergänzen (wird mit angezeigt und ist durchsuchbar) und alle Buchungen einer Person ansehen.
 Die *Auswertung* zeigt außerdem „Einnahmen nach Kund:in“.
+
+**Offene Zahlungen:** Bei einer Einnahme wählst du **„Bezahlt“** oder **„Noch offen“**. Offene Einnahmen
+stehen ganz oben auf der *Übersicht* unter „Offene Zahlungen“. Sobald bezahlt wurde, tippst du auf den **Kreis**
+(„Rückgängig“ ist kurz möglich). Ist eine Zahlung seit **14 Tagen** offen (einstellbar unter *Einstellungen →
+Offene Zahlungen*), wird sie **rot** markiert. Optional zeigt das **App-Symbol** auf dem Home-Bildschirm die Zahl
+offener Zahlungen (iOS fragt dafür einmal nach der Erlaubnis für Mitteilungen; die App verschickt aber keine).
+Eine Push-Nachricht zu einem bestimmten Zeitpunkt ist ohne eigenen Server nicht möglich – die Erinnerung siehst
+du deshalb beim Öffnen der App.
+
+> **Steuerlich wichtig:** Offene Einnahmen zählen **noch nicht** zu Einnahmen, Gewinn, Anlage EÜR und
+> Kleinunternehmergrenze – erst, wenn das Geld da ist (Zuflussprinzip). Beim Abhaken wird **heute** als
+> Zahlungsdatum eingetragen; kam das Geld früher, änderst du das Datum in der Buchung. Eine Stunde im Dezember,
+> die im Januar bezahlt wird, zählt im neuen Jahr.
 
 **Datum = Tag der Zahlung.** Die EÜR zählt, wann das Geld geflossen ist, nicht wann die Rechnung kam.
 
@@ -141,6 +154,7 @@ Reines HTML, CSS und JavaScript, ohne Build-Werkzeuge und ohne fremde Bibliothek
 | `js/yearReport.js`, `js/exports.js`, `js/pdf.js` | Jahresauswertung, CSV, PDF |
 | `js/backup.js` | Backup erstellen, prüfen, zusammenführen |
 | `js/notices.js` | Kleinunternehmer-Hinweis, Backup-Erinnerung |
+| `js/badge.js` | Zahl offener Zahlungen am App-Symbol |
 | `js/views/*.js` | Die einzelnen Bildschirme (u. a. `personPicker.js`: Kund:in-Auswahl, `contacts.js`: Kund:innen verwalten) |
 | `sw.js` | Offline-Modus (Liste aller Dateien) |
 
