@@ -73,7 +73,7 @@ export const nowISO = () => new Date().toISOString();
 
 // ---------- Laden ----------
 
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 
 /** Weitere Listen, die genauso gespeichert, gesichert und zusammengeführt werden */
 export const RECORD_STORES = ['products', 'routes', 'invoices', 'vouchers', 'cards', 'courses'];
@@ -113,7 +113,49 @@ async function migrate(from) {
   }
   // Version 3: Kategorien "Beratung" und "Gutscheine", Preisliste vorbelegen
   if (from < 3) await ensureV3Defaults();
+  // Version 4: 10er-Karte in der Preisliste; früher verkaufte Gutscheine als Gutscheine anlegen
+  if (from < 4) await ensureV4Defaults();
   await db.write(['meta'], (s) => s.meta.put({ key: 'dataVersion', value: DATA_VERSION }));
+}
+
+/** 10er-Karte in der Preisliste ergänzen; Gutschein-Verkäufe ohne Gutschein nachtragen */
+export async function ensureV4Defaults() {
+  const card = defaultProductRecords().find((p) => p.id === 'prod-10er-karte');
+  const products = [];
+  if (card && !state.products.some((p) => p.id === card.id)) {
+    products.push({ ...card, order: Math.max(-1, ...state.products.map((p) => p.order ?? -1)) + 1 });
+  }
+  // Gutscheine, die vor dieser Version über die Preisliste verkauft wurden
+  const sales = state.bookings
+    .filter((b) => b.productId === 'prod-gutschein' && !b.voucherId && b.type === 'income')
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const vouchers = [];
+  const bookings = [];
+  const counter = {};
+  for (const v of state.vouchers) {
+    const m = /^G-(\d{4})-(\d+)$/.exec(v.code || '');
+    if (m) counter[m[1]] = Math.max(counter[m[1]] || 0, Number(m[2]));
+  }
+  const now = nowISO();
+  for (const b of sales) {
+    const year = b.date.slice(0, 4);
+    counter[year] = (counter[year] || 0) + 1;
+    const v = {
+      id: uid('gs'), code: `G-${year}-${String(counter[year]).padStart(3, '0')}`, valueCents: b.amountCents, soldDate: b.date,
+      validUntil: `${Number(year) + 3}-12-31`, bookingId: b.id, buyerPersonId: b.personId || null, recipientName: '',
+      redemptions: [], cancelled: false, order: 0, createdAt: now, updatedAt: now,
+    };
+    vouchers.push(v);
+    bookings.push({ ...b, voucherId: v.id, updatedAt: now });
+  }
+  await db.write(['products', 'vouchers', 'bookings'], (s) => {
+    for (const p of products) s.products.put(p);
+    for (const v of vouchers) s.vouchers.put(v);
+    for (const b of bookings) s.bookings.put(b);
+  });
+  state.products.push(...products);
+  state.vouchers.push(...vouchers);
+  for (const b of bookings) replaceInState(state.bookings, b);
 }
 
 /** Kategorien "Beratung"/"Gutscheine" und die Preisliste ergänzen, falls sie fehlen */

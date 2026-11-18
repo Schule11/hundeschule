@@ -6,6 +6,10 @@ import {
 } from '../data.js';
 import { formatSigned, formatMoney, normalizeText } from '../format.js';
 import { showBookings } from './bookings.js';
+import { cardRemaining, cardState, voucherRemaining, voucherState } from '../vouchers.js';
+import { openCardDetail } from './cards.js';
+import { openVoucherDetail } from './vouchers.js';
+import { state } from '../data.js';
 
 export function openContactList(onClose = null) {
   const list = h('div');
@@ -133,6 +137,7 @@ export function openContactEditor(contact = null, closeList = null) {
     h('div', { class: 'stack' }, streetInput, h('div', { class: 'zip-city' }, zipInput, cityInput)),
     h('div', { class: 'lbl' }, 'Kontakt (optional)'),
     h('div', { class: 'stack' }, phoneInput, emailInput),
+    contact ? extrasFor(contact) : null,
     errorBox,
     h('div', { class: 'form-actions' },
       h('button', { type: 'button', class: 'btn primary block', onclick: save }, 'Speichern'),
@@ -146,4 +151,21 @@ export function openContactEditor(contact = null, closeList = null) {
       !isNew ? h('button', { type: 'button', class: 'btn-text danger', onclick: remove }, 'Kund:in löschen') : null),
   );
   if (isNew) nameInput.focus();
+}
+
+/** 10er-Karten und Gutscheine einer Kund:in */
+function extrasFor(contact) {
+  const cards = state.cards.filter((c) => c.personId === contact.id && cardState(c) === 'active');
+  const vouchers = state.vouchers.filter((v) => v.buyerPersonId === contact.id && voucherState(v) === 'active');
+  if (!cards.length && !vouchers.length) return null;
+  return [
+    h('div', { class: 'lbl' }, '10er-Karten und Gutscheine'),
+    h('div', { class: 'rows' },
+      cards.map((c) => h('button', { type: 'button', class: 'row', onclick: () => openCardDetail(c) },
+        h('div', { class: 'row-main' }, h('div', { class: 'row-title' }, c.title || '10er-Karte'), h('div', { class: 'row-sub' }, `noch ${cardRemaining(c)} von ${c.size}`)),
+        h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'))),
+      vouchers.map((v) => h('button', { type: 'button', class: 'row', onclick: () => openVoucherDetail(v) },
+        h('div', { class: 'row-main' }, h('div', { class: 'row-title' }, `Gutschein ${v.code}`), h('div', { class: 'row-sub' }, `Rest ${formatMoney(voucherRemaining(v))}`)),
+        h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›')))),
+  ];
 }

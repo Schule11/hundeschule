@@ -57,6 +57,8 @@ export const DEFAULT_PRODUCTS = [
   { key: 'schnupperstunde', name: 'Schnupperstunde', priceCents: 2000, unit: 'fixed', category: 'gruppenkurse' },
   { key: 'onlineberatung', name: 'Onlineberatung', priceCents: 8000, unit: 'fixed', category: 'beratung' },
   { key: 'gutschein', name: 'Gutschein', priceCents: 1000, unit: 'free', kind: 'voucher', category: 'gutscheine' },
+  { key: '10er-karte', name: '10er-Karte Gruppenstunde', priceCents: 20000, unit: 'fixed', kind: 'card', category: 'gruppenkurse',
+    cardSize: 10, covers: 'gruppenstunde' },
 ];
 
 export function defaultProductRecords() {
@@ -69,6 +71,7 @@ export function defaultProductRecords() {
     priceCents: p.priceCents,
     unit: p.unit,
     categoryId: `cat-${p.category}`,
+    ...(p.kind === 'card' ? { cardSize: p.cardSize, coversProductId: `prod-${p.covers}` } : {}),
     order: i,
     createdAt: EPOCH,
     updatedAt: EPOCH,

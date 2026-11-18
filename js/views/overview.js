@@ -8,6 +8,10 @@ import { showBookings } from './bookings.js';
 import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
 import { openContactList } from './contacts.js';
 import { openInvoiceList } from './invoices.js';
+import { openVoucherList } from './vouchers.js';
+import { openCardList } from './cards.js';
+import { openBookingForm } from './form.js';
+import { activeVouchers, voucherRemaining, cardState } from '../vouchers.js';
 import { invoiceStatus } from '../invoices.js';
 import { doExport } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
@@ -115,9 +119,16 @@ function tiles() {
     h('span', { class: 'tile-icon' }, icon(iconName, 24)),
     h('span', { class: 'tile-title' }, title),
     h('span', { class: 'tile-value' }, value));
+  const vouchers = activeVouchers();
+  const voucherSum = vouchers.reduce((s, v) => s + voucherRemaining(v), 0);
+  const cards = state.cards.filter((c) => cardState(c) === 'active').length;
   return h('div', { class: 'tiles' },
     tile('tile-contacts', 'Kund:innen', `${state.contacts.length} gespeichert`, 'people', () => openContactList()),
-    tile('tile-invoices', 'Rechnungen', openInvoices ? `${openInvoices} offen` : `${state.invoices.length} erstellt`, 'doc', () => openInvoiceList()));
+    tile('tile-invoices', 'Rechnungen', openInvoices ? `${openInvoices} offen` : `${state.invoices.length} erstellt`, 'doc', () => openInvoiceList()),
+    tile('tile-vouchers', 'Gutscheine', vouchers.length ? `${vouchers.length} gültig · ${formatMoney(voucherSum)}` : 'keine offen', 'gift',
+      () => openVoucherList(null, { onSell: () => openBookingForm(null, { productId: 'prod-gutschein' }) })),
+    tile('tile-cards', '10er-Karten', cards ? `${cards} aktiv` : 'keine aktiv', 'ticket',
+      () => openCardList(null, { onSell: () => openBookingForm(null, { productId: 'prod-10er-karte' }) })));
 }
 
 /** Dezente Zeile: Ausgaben dieses Jahres, zu denen noch ein Beleg fehlt */

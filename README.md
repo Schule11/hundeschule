@@ -31,7 +31,7 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 |---|---|
 | **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Preisliste, Betrag, Kategorie und Kund:in (je als aufklappbare Liste), Beschreibung, Zahlung, Datum, Beleg. Oben rechts ✓ speichert, ✕ bricht ab. |
 | **Menüleiste unten** | Übersicht, Buchungen, Auswertung |
-| **Übersicht** | Einnahmen, Ausgaben und Gewinn (Monat und Jahr), Kacheln zu Kund:innen und Rechnungen, offene Zahlungen zum Abhaken, Hinweise |
+| **Übersicht** | Einnahmen, Ausgaben und Gewinn (Monat und Jahr), Kacheln zu Kund:innen, Rechnungen, Gutscheinen und 10er-Karten, offene Zahlungen zum Abhaken, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
 | **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
@@ -85,6 +85,17 @@ Name, Anschrift, Steuernummer, Bankverbindung, Zahlungsziel). Dann:
 - Erstellte Rechnungen werden nicht mehr geändert. Bei einem Fehler: **stornieren** und neu erstellen – die Nummer
   bleibt vergeben, damit die Nummern lückenlos sind.
 - Die Anschrift der Kund:in wird gespeichert; ab 250 € gehört sie auf die Rechnung.
+
+**Gutscheine:** Verkaufen über + → „Gutschein“ (freier Betrag ab 10 €) oder Übersicht → Kachel **Gutscheine** →
+„+ Gutschein verkaufen“. Optional trägst du ein, für wen er ist; danach kannst du das **Gutschein-PDF** zum Verschenken
+teilen. Gutscheine gelten 3 Jahre (bis zum Jahresende). **Einlösen** bei der Stunde: + → Leistung → Kund:in →
+Zahlung **„Gutschein“** → Gutschein wählen. Der Verkauf war schon die Einnahme – beim Einlösen entsteht keine neue.
+Reicht der Gutschein nicht, wird nur der Restbetrag als Einnahme gebucht. Teileinlösung ist möglich, der Restwert bleibt.
+
+**10er-Karten:** Verkaufen über + → „10er-Karte Gruppenstunde“ (Kund:in auswählen) oder Kachel **10er-Karten**.
+Bei der Gruppenstunde wählst du unter Zahlung **„10er-Karte (noch …)“** – eine Stunde wird abgebucht, ohne neue
+Einnahme. Abbuchungen siehst du (und machst sie rückgängig) in der Kachel 10er-Karten oder bei der Kund:in.
+Preis und Anzahl der Stunden änderst du in der Preisliste.
 
 **Datum = Tag der Zahlung.** Die EÜR zählt, wann das Geld geflossen ist, nicht wann die Rechnung kam.
 

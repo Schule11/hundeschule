@@ -68,6 +68,10 @@ export function openProductEditor({ product = null }) {
     value: product ? centsToInput(product.priceCents) : '', placeholder: '0,00',
   });
   const priceLabel = h('label', { class: 'lbl', for: 'prod-price' });
+  const sizeInput = h('input', {
+    class: 'field', id: 'prod-size', type: 'text', inputmode: 'numeric', autocomplete: 'off',
+    value: String(product?.cardSize || 10),
+  });
   const catSelect = h('select', { class: 'field', id: 'prod-cat' });
   const errorBox = h('p', { class: 'form-error', role: 'alert', hidden: true });
 
@@ -108,6 +112,8 @@ export function openProductEditor({ product = null }) {
     const price = priceInput.value.trim() ? parseAmount(priceInput.value) : (st.unit === 'free' ? 0 : null);
     if (price == null || (st.unit !== 'free' && price <= 0)) return fail('Bitte einen gültigen Preis eingeben, z. B. 80 oder 20,00.');
     if (!catSelect.value) return fail('Bitte eine Kategorie wählen.');
+    const size = Number(sizeInput.value);
+    if (product?.kind === 'card' && (!Number.isInteger(size) || size < 2 || size > 50)) return fail('Bitte bei der Anzahl Stunden eine Zahl von 2 bis 50 eingeben.');
     await saveRecord('products', {
       id: product?.id,
       kind: product?.kind || 'service',
@@ -116,6 +122,7 @@ export function openProductEditor({ product = null }) {
       name,
       priceCents: price,
       categoryId: catSelect.value,
+      ...(product?.kind === 'card' ? { cardSize: size } : {}),
     });
     close();
     toast(isNew ? 'Eintrag angelegt' : 'Gespeichert');
@@ -140,6 +147,7 @@ export function openProductEditor({ product = null }) {
     special ? null : [h('div', { class: 'lbl' }, 'Art'), typeSeg, h('div', { class: 'lbl' }, 'Abrechnung'), unitSeg],
     priceLabel,
     priceInput,
+    product?.kind === 'card' ? [h('label', { class: 'lbl', for: 'prod-size' }, 'Anzahl Stunden auf der Karte'), sizeInput] : null,
     h('label', { class: 'lbl', for: 'prod-cat' }, 'Kategorie'),
     catSelect,
     special ? h('p', { class: 'hint' }, product.kind === 'voucher'

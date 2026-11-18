@@ -9,6 +9,11 @@ import { personPicker } from './personPicker.js';
 import { disclosurePicker, pickerOption, pickerGroup } from './picker.js';
 import { openInvoiceEditor, openInvoiceDetail } from './invoices.js';
 import { KIND_LABEL, STATUS_LABEL, invoiceStatus, cancelInvoice } from '../invoices.js';
+import {
+  activeVouchers, voucherRemaining, voucherRedeemed, activeCardsFor, cardRemaining,
+  createVoucherForBooking, createCardForBooking, redeemVoucher, useCard,
+} from '../vouchers.js';
+import { offerVoucherPdf, cancelVoucher } from './vouchers.js';
 import { PAYMENT_METHODS, productPriceLabel } from '../defaults.js';
 import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm, normalizeText } from '../format.js';
 import { prepareReceipt } from '../image.js';
@@ -40,13 +45,13 @@ function setLastPaid(paid) {
  * Öffnet das Formular. WICHTIG: Muss direkt im Klick-Handler aufgerufen
  * werden (ohne await davor), sonst öffnet das iPhone die Tastatur nicht.
  */
-export function openBookingForm(existing = null) {
+export function openBookingForm(existing = null, opts = {}) {
   if (open) return;
   open = true;
 
   const isEdit = !!existing;
   const st = {
-    type: existing?.type || getLastType(),
+    type: existing?.type || (opts.productId ? (recordById('products', opts.productId)?.type || 'income') : getLastType()),
     categoryId: existing?.categoryId || null,
     payment: existing?.payment || null,
     receiptId: existing?.receiptId || null, // gespeichertes Foto
@@ -63,6 +68,8 @@ export function openBookingForm(existing = null) {
     productId: existing?.productId || null, // gewählter Eintrag der Preisliste
     quantity: existing?.quantity || 1,      // z. B. Anzahl 15-Minuten-Einheiten
     autoDesc: existing?.description || null, // automatisch eingesetzte Beschreibung
+    redeem: null,          // Einlösen statt bezahlen: { kind: 'card', cardId } | { kind: 'voucher', voucherId }
+    restPayment: 'cash',   // wie ein Restbetrag über den Gutschein hinaus bezahlt wurde
   };
   // Kilometerpauschale: bei bestehenden Fahrten die damals gültige, sonst die aktuelle
   const kmRateCents = existing?.kmRateCents ?? state.settings.kmRateCents;
@@ -88,7 +95,7 @@ export function openBookingForm(existing = null) {
     value: existing
       ? (existing.km != null ? formatKm(existing.kmEntered ?? existing.km) : centsToInput(existing.fullAmountCents ?? existing.amountCents))
       : '',
-    oninput: () => { st.dirty = true; updateAmountHint(); clearError(); },
+    oninput: () => { st.dirty = true; updateAmountHint(); updateRedeemInfo(); clearError(); },
   });
   const amountLabel = h('label', { class: 'lbl', for: 'amount' }, 'Betrag');
   const amountSuffix = h('span', { class: 'amount-suffix', 'aria-hidden': 'true' }, '€');
@@ -145,7 +152,16 @@ export function openBookingForm(existing = null) {
   catPicker.onOpen(() => renderChips());
 
   const personLabel = h('label', { class: 'lbl', for: 'person' }, 'Kund:in (optional)');
-  const picker = personPicker({ initialId: existing?.personId, onChange: () => { st.dirty = true; } });
+  const picker = personPicker({ initialId: existing?.personId, onChange: () => { st.dirty = true; updateRedeemOptions(); } });
+  // Gutschein: für wen (steht auf dem Gutschein-PDF)
+  const voucherForInput = h('input', {
+    class: 'field', id: 'voucher-for', type: 'text', maxlength: 80, autocomplete: 'off', autocapitalize: 'words',
+    placeholder: 'z. B. Lisa (optional)', oninput: () => { st.dirty = true; },
+  });
+  const voucherForWrap = h('div', { hidden: true },
+    h('label', { class: 'lbl', for: 'voucher-for' }, 'Gutschein für (optional)'),
+    voucherForInput,
+    h('p', { class: 'hint' }, 'Steht auf dem Gutschein-PDF. Die Kund:in oben ist, wer den Gutschein kauft.'));
 
   const descInput = h('input', {
     class: 'field',
@@ -192,8 +208,51 @@ export function openBookingForm(existing = null) {
   const openChip = h('button', {
     type: 'button',
     class: 'chip chip-open',
-    onclick: () => setPaid(!st.paid),
+    onclick: () => {
+      if (st.redeem) { st.redeem = null; st.paid = true; }
+      setPaid(!st.paid);
+      updateStatus();
+    },
   }, 'Noch offen');
+
+  // Einlösen: 10er-Karte oder Gutschein (keine neue Einnahme)
+  const cardChip = h('button', {
+    type: 'button',
+    class: 'chip chip-redeem',
+    hidden: true,
+    onclick: () => {
+      const cards = activeCardsFor(picker.value().personId, currentProduct()?.id);
+      st.redeem = st.redeem?.kind === 'card' ? null : (cards[0] ? { kind: 'card', cardId: cards[0].id } : null);
+      st.paid = true;
+      st.dirty = true;
+      updateStatus();
+    },
+  }, '10er-Karte');
+  const voucherChip = h('button', {
+    type: 'button',
+    class: 'chip chip-redeem',
+    hidden: true,
+    onclick: () => {
+      const on = st.redeem?.kind !== 'voucher';
+      st.redeem = on ? { kind: 'voucher', voucherId: null } : null;
+      st.paid = true;
+      st.dirty = true;
+      updateStatus();
+      if (on) voucherPicker.open();
+    },
+  }, 'Gutschein');
+  const voucherPicker = disclosurePicker({ id: 'voucher-picker', placeholder: 'Gutschein auswählen', label: 'Gutschein' });
+  const voucherList = h('div', { class: 'picker-list', role: 'listbox', 'aria-label': 'Gutscheine' });
+  voucherPicker.panel.append(voucherList);
+  voucherPicker.onOpen(() => renderVoucherOptions());
+  const restChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Restbetrag' },
+    [['cash', 'Bar'], ['transfer', 'Überweisung'], ['open', 'Noch offen']].map(([v, l]) => h('button', {
+      type: 'button', class: 'chip', 'data-value': v,
+      onclick: () => { st.restPayment = v; st.dirty = true; updateRedeemInfo(); },
+    }, l)));
+  const redeemInfo = h('p', { class: 'hint redeem-info', hidden: true });
+  const restWrap = h('div', { hidden: true }, restChips);
+  const voucherWrap = h('div', { hidden: true, style: 'margin-top: 10px' }, voucherPicker.el);
   const payChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Zahlung' },
     PAYMENT_METHODS.map((p) => h('button', {
       type: 'button',
@@ -201,16 +260,19 @@ export function openBookingForm(existing = null) {
       'data-value': p.value,
       onclick: () => {
         // nochmal tippen = abwählen; eine Zahlungsart heißt immer "bezahlt"
-        st.payment = st.payment === p.value && st.paid ? null : p.value;
+        st.payment = st.payment === p.value && st.paid && !st.redeem ? null : p.value;
         st.dirty = true;
+        st.redeem = null;
         if (!st.paid) setPaid(true);
-        else updatePayChips();
+        else updateStatus();
       },
     }, p.label)),
+    cardChip,
+    voucherChip,
     openChip);
 
   const payLabel = h('div', { class: 'lbl' }, 'Zahlung');
-  const payWrap = h('div', null, payLabel, payChips, openHint);
+  const payWrap = h('div', null, payLabel, payChips, openHint, voucherWrap, redeemInfo, restWrap);
   const personWrap = h('div');
 
   const fileInput = h('input', { type: 'file', accept: 'image/*,application/pdf,.pdf', hidden: true, onchange: onFileChosen });
@@ -243,6 +305,7 @@ export function openBookingForm(existing = null) {
       catPicker.el,
 
       personWrap,
+      voucherForWrap,
 
       h('label', { class: 'lbl', for: 'desc' }, 'Beschreibung (optional)'),
       descInput,
@@ -314,6 +377,7 @@ export function openBookingForm(existing = null) {
   function renderProducts() {
     const list = productsFor(st.type);
     productWrap.hidden = list.length === 0;
+    queueMicrotask(() => updateRedeemOptions());
     productRow.replaceChildren(...list.map((p) => h('button', {
       type: 'button',
       class: 'chip product-chip',
@@ -470,14 +534,77 @@ export function openBookingForm(existing = null) {
 
   function updateStatus() {
     const income = st.type === 'income';
-    const open = isOpenEntry();
+    const open = isOpenEntry() && !st.redeem;
     openChip.hidden = !income;
     payLabel.textContent = income ? 'Zahlung' : 'Zahlung (optional)';
     openHint.hidden = !open;
-    serviceWrap.hidden = !(open || (income && st.showService));
-    dateWrap.hidden = open;
+    // Beim Einlösen zählt das Datum der Stunde (es fließt kein Geld)
+    serviceWrap.hidden = !(open || st.redeem || (income && st.showService));
+    dateWrap.hidden = open || !!st.redeem;
+    voucherWrap.hidden = st.redeem?.kind !== 'voucher';
+    if (st.redeem?.kind !== 'voucher') voucherPicker.close();
     updatePayChips();
     updatePerson();
+    updateRedeemInfo();
+  }
+
+  // ---------- Gutschein / 10er-Karte ----------
+
+  /** Welche Einlöse-Möglichkeiten passen gerade (Kund:in, Leistung)? */
+  function updateRedeemOptions() {
+    const product = currentProduct();
+    const sells = product && product.kind && product.kind !== 'service';
+    const allowed = st.type === 'income' && !isEdit && !sells;
+    const cards = allowed && product ? activeCardsFor(picker.value().personId, product.id) : [];
+    cardChip.hidden = !cards.length;
+    if (cards.length) cardChip.textContent = `10er-Karte (noch ${cardRemaining(cards[0])})`;
+    voucherChip.hidden = !(allowed && activeVouchers().length);
+    if (st.redeem?.kind === 'card' && !cards.some((c) => c.id === st.redeem.cardId)) st.redeem = cards[0] ? { kind: 'card', cardId: cards[0].id } : null;
+    if (st.redeem?.kind === 'voucher' && voucherChip.hidden) st.redeem = null;
+    // Gutschein verkaufen: "für wen" anzeigen
+    voucherForWrap.hidden = !(product?.kind === 'voucher' && !isEdit);
+    updateStatus();
+  }
+
+  function renderVoucherOptions() {
+    const list = activeVouchers();
+    voucherList.replaceChildren(...list.map((v) => pickerOption({
+      label: `${v.code} · Rest ${formatMoney(voucherRemaining(v))}`,
+      sub: [v.recipientName ? `für ${v.recipientName}` : null, `gültig bis ${formatDate(v.validUntil)}`].filter(Boolean).join(' · '),
+      selected: st.redeem?.voucherId === v.id,
+      onClick: () => {
+        st.redeem = { kind: 'voucher', voucherId: v.id };
+        st.dirty = true;
+        voucherPicker.close();
+        updateStatus();
+      },
+      data: { id: v.id },
+    })));
+  }
+
+  function updateRedeemInfo() {
+    const r = st.redeem;
+    redeemInfo.hidden = !r;
+    restWrap.hidden = true;
+    for (const b of restChips.children) b.setAttribute('aria-pressed', String(b.dataset.value === st.restPayment));
+    if (!r) return;
+    const amount = parseAmount(amountInput.value) || 0;
+    if (r.kind === 'card') {
+      const card = recordById('cards', r.cardId);
+      const left = card ? cardRemaining(card) : 0;
+      redeemInfo.textContent = `Wird von der 10er-Karte abgebucht (noch ${left}, danach ${left - 1}). Es entsteht keine neue Einnahme.`;
+      return;
+    }
+    const v = recordById('vouchers', r.voucherId);
+    voucherPicker.setValue(v ? `${v.code} · Rest ${formatMoney(voucherRemaining(v))}` : null);
+    if (!v) { redeemInfo.textContent = 'Bitte den Gutschein auswählen.'; return; }
+    const rest = voucherRemaining(v);
+    if (amount <= rest) {
+      redeemInfo.textContent = `Wird vom Gutschein abgezogen (Rest danach ${formatMoney(rest - amount)}). Es entsteht keine neue Einnahme.`;
+    } else {
+      redeemInfo.textContent = `Der Gutschein deckt ${formatMoney(rest)}. Den Restbetrag von ${formatMoney(amount - rest)} hat die Kund:in bezahlt per:`;
+      restWrap.hidden = false;
+    }
   }
 
   // Kund:in: bei Einnahmen immer, bei Ausgaben nur für Fahrten (oder wenn schon gewählt)
@@ -536,8 +663,10 @@ export function openBookingForm(existing = null) {
 
   function updatePayChips() {
     for (const el of payChips.children) {
-      if (el === openChip) el.setAttribute('aria-pressed', String(isOpenEntry()));
-      else el.setAttribute('aria-pressed', String(st.paid && el.dataset.value === st.payment));
+      if (el === openChip) el.setAttribute('aria-pressed', String(isOpenEntry() && !st.redeem));
+      else if (el === cardChip) el.setAttribute('aria-pressed', String(st.redeem?.kind === 'card'));
+      else if (el === voucherChip) el.setAttribute('aria-pressed', String(st.redeem?.kind === 'voucher'));
+      else el.setAttribute('aria-pressed', String(!st.redeem && st.paid && el.dataset.value === st.payment));
     }
   }
 
@@ -684,7 +813,65 @@ export function openBookingForm(existing = null) {
     const open = isOpenEntry();
     const withService = open || (st.type === 'income' && st.showService);
     if (withService && !DATE.test(serviceInput.value)) { showError('Bitte das Datum der Stunde wählen.'); return; }
-    if (!open && !DATE.test(dateInput.value)) { showError('Bitte das Datum der Zahlung wählen.'); return; }
+    if (!open && !st.redeem && !DATE.test(dateInput.value)) { showError('Bitte das Datum der Zahlung wählen.'); return; }
+
+    // --- Einlösen: 10er-Karte oder Gutschein (keine neue Einnahme) ---
+    if (st.redeem) {
+      if (!DATE.test(serviceInput.value)) { showError('Bitte das Datum der Stunde wählen.'); return; }
+      const note = descInput.value.trim() || product?.name || cat.name;
+      const who = picker.value().personId || null;
+      st.saving = true;
+      try {
+        if (st.redeem.kind === 'card') {
+          const left = await useCard(st.redeem.cardId, { date: serviceInput.value, note });
+          close();
+          toast(`Von der 10er-Karte abgebucht – noch ${left} ${left === 1 ? 'Stunde' : 'Stunden'}`);
+          return;
+        }
+        const v = recordById('vouchers', st.redeem.voucherId);
+        if (!v) { st.saving = false; showError('Bitte den Gutschein auswählen.'); return; }
+        const covered = Math.min(cents, voucherRemaining(v));
+        const rest = cents - covered;
+        let restBooking = null;
+        if (rest > 0) {
+          const restOpen = st.restPayment === 'open';
+          restBooking = await saveBooking({
+            type: 'income',
+            date: serviceInput.value,
+            serviceDate: restOpen ? serviceInput.value : null,
+            paid: !restOpen,
+            amountCents: rest,
+            categoryId: cat.id,
+            description: `${note} (Rest nach Gutschein ${v.code})`,
+            payment: restOpen ? null : st.restPayment,
+            productId: product ? product.id : null,
+            personId: who,
+          });
+        }
+        await redeemVoucher(v.id, { date: serviceInput.value, cents: covered, note, personId: who, bookingId: restBooking?.id || null });
+        close();
+        toast(rest > 0
+          ? `${formatMoney(covered)} vom Gutschein, ${formatMoney(rest)} als Einnahme gebucht`
+          : `${formatMoney(covered)} vom Gutschein eingelöst`);
+      } catch (err) {
+        console.error(err);
+        st.saving = false;
+        showError(err.message || String(err));
+      }
+      return;
+    }
+
+    // --- 10er-Karte verkaufen: braucht eine Kund:in ---
+    if (!isEdit && product?.kind === 'card' && !picker.hasSelection()) {
+      showError('Bitte die Kund:in wählen – die 10er-Karte gehört zu ihr.');
+      return;
+    }
+    // --- Gutschein-Verkauf ändern: nicht unter den schon eingelösten Betrag ---
+    const soldVoucher = isEdit ? recordById('vouchers', existing.voucherId) : null;
+    if (soldVoucher && cents < voucherRedeemed(soldVoucher)) {
+      showError(`Von diesem Gutschein wurden schon ${formatMoney(voucherRedeemed(soldVoucher))} eingelöst.`);
+      return;
+    }
 
     st.saving = true;
     saveBtn.disabled = true;
@@ -697,7 +884,7 @@ export function openBookingForm(existing = null) {
       const receiptChange = st.newReceipt
         ? { add: { data: st.newReceipt.data, type: st.newReceipt.type, width: st.newReceipt.width, height: st.newReceipt.height, name: st.newReceipt.name || null } }
         : (st.removeReceipt ? { remove: true } : null);
-      await saveBooking({
+      const saved = await saveBooking({
         id: existing?.id,
         type: st.type,
         // Offen: Datum der Stunde (bis zur Zahlung). Bezahlt: Datum der Zahlung.
@@ -722,8 +909,23 @@ export function openBookingForm(existing = null) {
       }, receiptChange);
       setLastType(st.type);
       if (!isEdit && st.type === 'income') setLastPaid(!open);
+
+      // Gutschein / 10er-Karte zum Verkauf anlegen
+      let newVoucher = null;
+      if (!isEdit && product?.kind === 'voucher') {
+        newVoucher = await createVoucherForBooking(saved, { recipientName: voucherForInput.value.trim() });
+        await saveBooking({ id: saved.id, voucherId: newVoucher.id });
+      } else if (!isEdit && product?.kind === 'card') {
+        const card = await createCardForBooking(saved, product);
+        await saveBooking({ id: saved.id, cardId: card.id });
+      } else if (soldVoucher && soldVoucher.valueCents !== cents) {
+        await saveRecord('vouchers', { id: soldVoucher.id, valueCents: cents });
+      }
+
       close();
-      toast(isEdit ? 'Änderung gespeichert' : open ? 'Offene Einnahme gespeichert' : `${st.type === 'income' ? 'Einnahme' : 'Ausgabe'} gespeichert`);
+      if (newVoucher) offerVoucherPdf(newVoucher);
+      else if (!isEdit && product?.kind === 'card') toast(`10er-Karte angelegt (${product.cardSize || 10} Stunden)`);
+      else toast(isEdit ? 'Änderung gespeichert' : open ? 'Offene Einnahme gespeichert' : `${st.type === 'income' ? 'Einnahme' : 'Ausgabe'} gespeichert`);
     } catch (err) {
       console.error(err);
       showError(`Speichern hat nicht geklappt: ${err.message || err}`);
@@ -735,6 +937,14 @@ export function openBookingForm(existing = null) {
 
   async function remove() {
     const label = existing.description || categoryById(existing.categoryId)?.name || 'Buchung';
+    const soldV = recordById('vouchers', existing.voucherId);
+    const soldC = recordById('cards', existing.cardId);
+    if ((soldV && (soldV.redemptions || []).length) || (soldC && (soldC.uses || []).length)) {
+      showError(soldV
+        ? `Von Gutschein ${soldV.code} wurde schon etwas eingelöst. Mach die Einlösungen zuerst rückgängig (Übersicht → Gutscheine).`
+        : 'Von dieser 10er-Karte wurden schon Stunden abgebucht. Mach die Abbuchungen zuerst rückgängig (Übersicht → 10er-Karten).');
+      return;
+    }
     const inv = recordById('invoices', existing.invoiceId);
     const invText = inv && !inv.cancelled ? ` ${KIND_LABEL[inv.kind]} ${inv.number} wird dabei storniert (die Nummer bleibt vergeben).` : '';
     const ok = await confirmDialog({
@@ -746,6 +956,8 @@ export function openBookingForm(existing = null) {
     if (!ok) return;
     try {
       if (inv && !inv.cancelled) await cancelInvoice(inv);
+      if (soldV) await cancelVoucher(soldV);
+      if (soldC) await saveRecord('cards', { id: soldC.id, cancelled: true });
       await deleteBooking(existing.id);
       close();
       toast('Buchung gelöscht');
@@ -796,6 +1008,12 @@ export function openBookingForm(existing = null) {
   document.body.classList.add('sheet-open');
   document.addEventListener('keydown', onKey);
 
-  // Sofort fokussieren (noch im selben Tipp), damit die Zahlentastatur aufgeht
-  if (!isEdit) amountInput.focus({ preventScroll: true });
+  // Mit vorgewähltem Eintrag der Preisliste starten (z. B. "Gutschein verkaufen")
+  const preset = !isEdit && opts.productId ? recordById('products', opts.productId) : null;
+  if (preset) {
+    selectProduct(preset); // fokussiert bei freiem Betrag (Gutschein) das Betragsfeld
+  } else if (!isEdit) {
+    // Sofort fokussieren (noch im selben Tipp), damit die Zahlentastatur aufgeht
+    amountInput.focus({ preventScroll: true });
+  }
 }
