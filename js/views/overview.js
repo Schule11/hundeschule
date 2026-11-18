@@ -5,7 +5,7 @@ import { isIOS, isStandalone } from '../ui.js';
 import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, isOverdue, needsReceipt } from '../data.js';
 import { formatMoney } from '../format.js';
 import { showBookings } from './bookings.js';
-import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
+import { smallBusinessStatus, tradeTaxStatus, backupDue, snoozeUntil } from '../notices.js';
 import { openContactList } from './contacts.js';
 import { openInvoiceList } from './invoices.js';
 import { openVoucherList } from './vouchers.js';
@@ -15,7 +15,7 @@ import { courseStats } from '../courses.js';
 import { openBookingForm } from './form.js';
 import { activeVouchers, voucherRemaining, cardState } from '../vouchers.js';
 import { invoiceStatus } from '../invoices.js';
-import { doExport } from './settings.js';
+import { doExport, openTradeTaxPage } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
 import { bookingRow, pageHeader } from './components.js';
 
@@ -179,10 +179,18 @@ function openPayments() {
 
 /** Dezenter Hinweis, wenn sich der Umsatz der Kleinunternehmergrenze nähert */
 function limitNotices() {
-  return smallBusinessStatus().notices.map((n) => h('div', { class: `notice${n.level === 'alert' ? ' alert' : ''}` },
+  const list = smallBusinessStatus().notices.map((n) => h('div', { class: `notice${n.level === 'alert' ? ' alert' : ''}` },
     h('strong', null, n.title),
     h('p', null, n.text),
     h('a', { href: '#/einstellungen', class: 'btn-text', style: 'display:inline-block' }, 'Grenzen in den Einstellungen')));
+  const tt = tradeTaxStatus().notice;
+  if (tt) {
+    list.push(h('div', { class: 'notice', id: 'tradetax-notice' },
+      h('strong', null, tt.title),
+      h('p', null, tt.text),
+      h('button', { type: 'button', class: 'btn-text', style: 'display:inline-block', onclick: () => openTradeTaxPage() }, 'Mehr zur Gewerbesteuer')));
+  }
+  return list;
 }
 
 /** Erinnerung an ein Backup */

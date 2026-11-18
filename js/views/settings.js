@@ -5,11 +5,11 @@
 
 import { h, mount, icon, toast, choiceDialog, confirmDialog, alertDialog, getTheme, setTheme, openSheet } from '../ui.js';
 import { state, storageIsPersistent, updateSettings, categoriesFor } from '../data.js';
-import { formatDateTime, formatSize, formatMoney, centsToInput, parseAmount, formatIban, isValidIban } from '../format.js';
+import { formatDateTime, formatSize, formatMoney, formatProfit, centsToInput, parseAmount, formatIban, isValidIban } from '../format.js';
 import { APP_VERSION, APP_STAGE } from '../config.js';
 import { createBackupFile, markBackupDone, readBackupFile, applyBackup } from '../backup.js';
 import { saveFile, prefersShare } from '../files.js';
-import { smallBusinessStatus } from '../notices.js';
+import { smallBusinessStatus, tradeTaxStatus } from '../notices.js';
 import { openCategoryList } from './categories.js';
 import { pageHeader } from './components.js';
 import { openContactList } from './contacts.js';
@@ -256,6 +256,83 @@ function openLimitsPage(onClose) {
   );
 }
 
+function renderTradeTaxStatus(box) {
+  const st = tradeTaxStatus();
+  const e = st.estimate;
+  box.replaceChildren(
+    h('div', { class: 'kv' },
+      h('span', null, `Gewinn ${st.year} bisher`),
+      h('span', { class: 'num' }, formatProfit(st.profit))),
+    meter(st.percent),
+    h('p', { class: 'hint', style: 'margin-top: 6px' }, `${st.percent} % des Freibetrags von ${formatMoney(st.allowance)}`),
+    st.profit > st.allowance
+      ? h('div', null,
+        h('div', { class: 'kv', style: 'margin-top: 8px' }, h('span', null, 'Gewerbesteuer (geschätzt)'), h('span', { class: 'num' }, formatMoney(e.tax))),
+        h('div', { class: 'kv' }, h('span', null, 'davon auf die Einkommensteuer anrechenbar'), h('span', { class: 'num' }, `bis ${formatMoney(e.credit)}`)),
+        h('p', { class: 'hint' }, `Rechnung: (${formatMoney(e.taxable)} über dem Freibetrag) × 3,5 % × ${e.rate} % Hebesatz. Vereinfacht – genaue Zahlen klärt die Steuerberatung.`))
+      : h('p', { class: 'hint', style: 'margin-bottom: 0' }, 'Unter dem Freibetrag fällt keine Gewerbesteuer an.'),
+  );
+}
+
+export function openTradeTaxPage(onClose) {
+  const s = state.settings;
+  const { body } = openSheet({ title: 'Gewerbesteuer', onClose });
+  const status = h('div');
+  renderTradeTaxStatus(status);
+  const refresh = () => renderTradeTaxStatus(status);
+  const hintBox = h('input', {
+    type: 'checkbox',
+    id: 'set-tradetax-hint',
+    checked: s.tradeTaxHint !== false,
+    onchange: async () => {
+      await updateSettings({ tradeTaxHint: hintBox.checked }, { silent: true });
+      toast(hintBox.checked ? 'Hinweis an' : 'Hinweis aus');
+    },
+  });
+  mount(body,
+    h('section', { class: 'card' }, status),
+    h('section', { class: 'card' },
+      h('p', { style: 'margin-top: 0' },
+        'Eine Hundeschule ist in der Regel ein Gewerbe. Gewerbesteuer fällt aber erst an, wenn der Gewinn im Jahr über dem Freibetrag '
+        + 'von 24.500 € liegt (für Einzelunternehmen). Dann musst du auch eine Gewerbesteuererklärung abgeben.'),
+      h('p', { class: 'hint' },
+        'Berechnung für den Teil über dem Freibetrag: 3,5 % (Messbetrag) × Hebesatz der Gemeinde. Bis zum 4-Fachen des Messbetrags '
+        + 'wird sie auf deine Einkommensteuer angerechnet. Bei einem Hebesatz von 420 % bleibt daher meist nur wenig übrig.'),
+      h('p', { class: 'hint', style: 'margin-bottom: 0' },
+        'Die App rechnet mit dem Gewinn aus der Auswertung. Hinzurechnungen (z. B. für hohe Mieten) sind nicht berücksichtigt.')),
+    h('section', { class: 'card' },
+      settingField({
+        id: 'set-tradetax', label: 'Freibetrag', unit: '€', inputmode: 'decimal',
+        value: euroPlain(s.tradeTaxAllowanceCents),
+        hint: 'Für Einzelunternehmen 24.500 €.',
+        onSave: async (v) => {
+          const cents = parseAmount(v);
+          if (cents == null || cents <= 0) return invalid('Bitte einen Betrag eingeben, z. B. 24.500.');
+          await updateSettings({ tradeTaxAllowanceCents: cents }, { silent: true });
+          refresh();
+          return euroPlain(cents);
+        },
+      }),
+      settingField({
+        id: 'set-hebesatz', label: 'Hebesatz der Gemeinde', unit: '%', inputmode: 'numeric',
+        value: String(s.tradeTaxRatePercent),
+        hint: 'Marburg ab 2026: 420 %. Steht auf der Website der Stadt oder im Gewerbesteuerbescheid.',
+        onSave: async (v) => {
+          const n = Number(v.replace(',', '.'));
+          if (!Number.isInteger(n) || n < 200 || n > 900) return invalid('Bitte eine ganze Zahl zwischen 200 und 900 eingeben, z. B. 420.');
+          await updateSettings({ tradeTaxRatePercent: n }, { silent: true });
+          refresh();
+          return String(n);
+        },
+      })),
+    h('label', { class: 'switch-row', for: 'set-tradetax-hint' },
+      h('span', null,
+        h('strong', null, 'Hinweis auf der Übersicht'),
+        h('span', { class: 'hint', style: 'display:block; margin: 2px 0 0' },
+          `Erscheint, wenn der Gewinn ${s.warnPercent || 80} % des Freibetrags erreicht.`)),
+      hintBox));
+}
+
 // ---------- Hauptseite ----------
 
 export function render(root) {
@@ -323,7 +400,8 @@ export function render(root) {
     h('div', { class: 'rows group' },
       navRow('Offene Zahlungen', `nach ${s.paymentReminderDays ?? 14} Tagen`, () => openPaymentsPage(refresh), { id: 'nav-payments' }),
       navRow('Fahrtkosten & Strecken', `${formatMoney(s.kmRateCents)}/km`, () => openMileagePage(refresh), { id: 'nav-km' }),
-      navRow('Kleinunternehmer', `${limits.percentOfPrevLimit} % der Grenze`, () => openLimitsPage(refresh), { id: 'nav-limits' })),
+      navRow('Kleinunternehmer', `${limits.percentOfPrevLimit} % der Grenze`, () => openLimitsPage(refresh), { id: 'nav-limits' }),
+      navRow('Gewerbesteuer', `${tradeTaxStatus().percent} % des Freibetrags`, () => openTradeTaxPage(refresh), { id: 'nav-tradetax' })),
 
     h('h2', { class: 'section-title' }, 'Datensicherung'),
     h('section', { class: 'card' },

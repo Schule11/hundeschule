@@ -1,6 +1,6 @@
 // Export der Jahresauswertung als CSV (für Excel/Numbers) und als PDF.
 
-import { state, categoryName, categoryById, contactById, contactLabel, recordById } from './data.js';
+import { state, categoryName, categoryById, contactById, contactLabel, recordById, isShiftedYear } from './data.js';
 import { paymentLabel, euerPostenFor } from './defaults.js';
 import { yearReport } from './yearReport.js';
 import { formatMoney, formatSigned, formatProfit, formatDate, formatKm, todayISO, MONTHS } from './format.js';
@@ -50,7 +50,7 @@ export function bookingsCsv(year) {
       textCell(categoryName(b.categoryId)),
       textCell(euerPostenFor(categoryById(b.categoryId))),
       textCell(contactLabel(contactById(b.personId))),
-      textCell(b.description),
+      textCell([b.description, isShiftedYear(b) ? `10-Tage-Regel: zählt für ${year}` : null].filter(Boolean).join(' – ')),
       textCell(paymentLabel(b.payment)),
       b.type === 'income' ? moneyCell(b.amountCents) : '',
       b.type === 'expense' ? moneyCell(b.amountCents) : '',
@@ -248,11 +248,13 @@ export function reportPdf(year) {
     let month = null;
     for (const b of r.bookings) {
       const m = Number(b.date.slice(5, 7));
-      if (m !== month) {
-        month = m;
+      const key = b.date.slice(0, 7);
+      if (key !== month) {
+        month = key;
         ensure(40, tableHead);
         y += 18;
-        pdf.text(MONTHS[m - 1], M, y, { size: 9.5, bold: true });
+        const dy = Number(b.date.slice(0, 4));
+        pdf.text(dy === Number(year) ? MONTHS[m - 1] : `${MONTHS[m - 1]} ${dy} (10-Tage-Regel)`, M, y, { size: 9.5, bold: true });
         y += 2;
       }
       ensure(16, () => { tableHead(); });
@@ -263,6 +265,7 @@ export function reportPdf(year) {
       let desc = [person, b.tripTo ? `Fahrt: ${b.tripTo}` : null, b.tripPurpose, b.description].filter(Boolean).join(' – ');
       if (b.km) desc = `${desc} (${formatKm(b.km)} km)`.trim();
       if (b.businessPercent && b.businessPercent < 100) desc = [`${b.businessPercent} % von ${formatMoney(b.fullAmountCents)}`, desc].filter(Boolean).join(' – ');
+      if (isShiftedYear(b)) desc = [`10-Tage-Regel: zählt für ${year}`, desc].filter(Boolean).join(' – ');
       pdf.text(desc, X.desc, y, { size: 9, maxWidth: 178 });
       pdf.text(paymentLabel(b.payment), X.pay, y, { size: 9, maxWidth: 58 });
       pdf.text(b.receiptId ? 'ja' : '', X.receipt, y, { size: 9 });

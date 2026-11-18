@@ -1,7 +1,8 @@
-// Hinweise auf der Übersicht: Kleinunternehmergrenze und Backup-Erinnerung.
+// Hinweise auf der Übersicht: Kleinunternehmergrenze, Gewerbesteuer und Backup-Erinnerung.
 
 import { state, revenueFor } from './data.js';
 import { formatMoney } from './format.js';
+import { yearReport } from './yearReport.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -74,6 +75,56 @@ export function smallBusinessStatus(today = new Date()) {
     percentOfCurrentLimit: pct(current.cents, lc),
     notices: notices.slice(0, 2),
   };
+}
+
+/**
+ * Grobe Schätzung der Gewerbesteuer (Einzelunternehmen):
+ * Gewerbeertrag ≈ Gewinn, auf volle 100 € abgerundet, minus Freibetrag (24.500 €).
+ * Steuermessbetrag = 3,5 % davon, Gewerbesteuer = Messbetrag × Hebesatz.
+ * Auf die Einkommensteuer angerechnet wird bis zum 4-Fachen des Messbetrags (§ 35 EStG) –
+ * vorausgesetzt, es fällt genug Einkommensteuer an.
+ */
+export function tradeTaxEstimate(profitCents, s = state.settings) {
+  const allowance = s.tradeTaxAllowanceCents ?? 2450000;
+  const rate = s.tradeTaxRatePercent ?? 420;
+  const base = Math.floor(Math.max(0, profitCents) / 10000) * 10000;
+  const taxable = Math.max(0, base - allowance);
+  const measure = Math.round(taxable * 0.035);
+  const tax = Math.round((measure * rate) / 100);
+  const credit = Math.min(tax, measure * 4);
+  return { allowance, rate, taxable, measure, tax, credit, net: tax - credit };
+}
+
+/** Gewinn eines Jahres im Verhältnis zum Gewerbesteuer-Freibetrag, mit Hinweis für die Übersicht */
+export function tradeTaxStatus(year = new Date().getFullYear()) {
+  const s = state.settings;
+  const profit = yearReport(year).totals.profit;
+  const estimate = tradeTaxEstimate(profit);
+  const allowance = estimate.allowance;
+  const percent = allowance > 0 ? Math.round((Math.max(0, profit) / allowance) * 100) : 0;
+  const warnAt = s.warnPercent || 80;
+  let notice = null;
+  if (s.tradeTaxHint !== false) {
+    if (profit > allowance) {
+      notice = {
+        level: 'warn',
+        title: `Gewinn ${year} über dem Gewerbesteuer-Freibetrag`,
+        text: `${year} bisher ${formatMoney(profit)} Gewinn – mehr als ${formatMoney(allowance)}. Für den Teil darüber fällt Gewerbesteuer an `
+          + `(geschätzt ${formatMoney(estimate.tax)}), und es ist eine Gewerbesteuererklärung nötig. Das meiste davon wird auf die `
+          + 'Einkommensteuer angerechnet. Bitte Rücklage bilden und mit Steuerberatung klären.',
+        percent,
+      };
+    } else if (percent >= warnAt) {
+      notice = {
+        level: 'warn',
+        title: 'Gewinn nähert sich dem Gewerbesteuer-Freibetrag',
+        text: `${year} bisher ${formatMoney(profit)} Gewinn – das sind ${percent} % von ${formatMoney(allowance)}. `
+          + 'Bis zum Freibetrag fällt keine Gewerbesteuer an, darüber ein kleiner Teil des Gewinns.',
+        percent,
+      };
+    }
+  }
+  return { year, profit, allowance, percent, estimate, notice };
 }
 
 /** Ist ein Backup fällig? Gibt null oder { last, ageDays } zurück. */

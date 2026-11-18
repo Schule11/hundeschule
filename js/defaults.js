@@ -95,6 +95,10 @@ export const DEFAULT_SETTINGS = {
   manualRevenue: {},               // Umsatz von Hand je Jahr, z. B. { "2025": 1200000 }
   backupReminderDays: 30,          // 0 = keine Erinnerung
   paymentReminderDays: 14,         // offene Zahlung gilt danach als überfällig
+  tradeTaxAllowanceCents: 2450000, // Gewerbesteuer-Freibetrag für Einzelunternehmen (24.500 €)
+  tradeTaxRatePercent: 420,        // Hebesatz der Gemeinde (Marburg ab 2026: 420 %)
+  tradeTaxHint: true,              // Hinweis auf der Übersicht anzeigen
+  closing: {},                     // Jahresabschluss je Jahr, z. B. { "2026": { ack: { open: true }, exportedAt } }
   // Geschäftsdaten für Rechnungen und Quittungen
   ownerName: '',                   // Inhaber:in (Vor- und Nachname)
   street: '',

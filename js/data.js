@@ -441,6 +441,24 @@ export function needsReceipt(b) {
   return b.type === 'expense' && !b.receiptId && !categoryById(b.categoryId)?.mileage;
 }
 
+/**
+ * Jahr, zu dem eine Buchung in der EÜR zählt. Normalerweise das Jahr der Zahlung.
+ * 10-Tage-Regel: Regelmäßig wiederkehrende Zahlungen kurz vor oder nach dem
+ * Jahreswechsel (22.12.–10.01.) können dem Nachbarjahr zugeordnet sein (Feld euerYear).
+ */
+export function euerYear(b) {
+  const y = Number(b.date.slice(0, 4));
+  const md = b.date.slice(5);
+  if (b.euerYear === y - 1 && md <= '01-10') return y - 1;
+  if (b.euerYear === y + 1 && md >= '12-22') return y + 1;
+  return y;
+}
+
+/** Wurde die Buchung per 10-Tage-Regel ins Nachbarjahr verschoben? */
+export function isShiftedYear(b) {
+  return euerYear(b) !== Number(b.date.slice(0, 4));
+}
+
 // ---------- Umsatz (für die Kleinunternehmergrenze) ----------
 
 /** Umsatz eines Jahres: von Hand eingetragen, sonst Summe der Einnahmen in der App */

@@ -33,8 +33,8 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 | **Menüleiste unten** | Übersicht, Buchungen, Auswertung |
 | **Übersicht** | Einnahmen, Ausgaben und Gewinn (Monat und Jahr), Kacheln zu Kund:innen, Rechnungen, Gutscheinen, 10er-Karten und Kursen, offene Zahlungen zum Abhaken, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
-| **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
-| **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
+| **Auswertung** | Jahresabschluss-Assistent, Summen für die Anlage EÜR, Diagramme (Monate, Vorjahresvergleich), Kategorien und Kund:innen; Export als PDF (auch Fahrtenliste) und CSV |
+| **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Geschäftsdaten, Preisliste, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Gewerbesteuer, Backup, hell/dunkel |
 
 **Preisliste:** Oben im Formular stehen deine Leistungen (z. B. Einzelstunde 80 €, Telefonberatung 20 € pro 15 Min,
 Gutschein ab 10 €). Ein Tipp füllt Betrag, Kategorie und Beschreibung aus; bei der Telefonberatung wählst du die Dauer
@@ -44,7 +44,8 @@ mit − und +. Ändern, sortieren, ergänzen (auch Vorlagen für Ausgaben wie di
 dazu **Ziel** und **Zweck** (das will das Finanzamt bei Rückfragen sehen) und ob es eine **Hin- und Rückfahrt** war
 (die km werden dann verdoppelt). Häufige Strecken wählst du mit einem Tipp; neue merkst du dir direkt beim Erfassen
 oder unter *Einstellungen → Fahrtkosten & Strecken*. Die App rechnet mit der Kilometerpauschale (Standard 0,30 €/km);
-eine Änderung gilt nur für neue Fahrten.
+eine Änderung gilt nur für neue Fahrten. Die **Fahrtenliste als PDF** (Datum, Ziel, Zweck, Strecke, km, Betrag,
+mit Summen) erstellst du in der *Auswertung* – fehlende Ziele oder Zwecke sind darin rot markiert.
 
 **Privatanteil:** Nutzt du etwas auch privat (z. B. Handy und Internet), stellst du bei der Ausgaben-Kategorie den
 betrieblichen Anteil ein (*Einstellungen → Kategorien Ausgaben*, z. B. 50 %). Du gibst dann den ganzen
@@ -138,7 +139,29 @@ dann unter *Auswertung* das PDF erstellen. Das Handy bleibt das Hauptgerät.
    „Betriebseinnahmen als umsatzsteuerlicher Kleinunternehmer“ (im Formular 2025: Zeile 12).
    Ausgaben trägst du **brutto** ein, also so, wie du bezahlt hast.
 4. **PDF erstellen** gibt dir eine Jahresübersicht mit allen Buchungen zum Ablegen oder für die Steuerberatung.
-   **CSV** öffnet sich direkt in Excel oder Numbers.
+   **CSV** öffnet sich direkt in Excel oder Numbers. **Fahrtenliste (PDF)** zeigt alle Fahrten des Jahres.
+
+**Jahresabschluss-Assistent:** Ganz oben in der *Auswertung* steht „Jahresabschluss 2026 – x von 8 erledigt“.
+Ein Tipp öffnet eine Checkliste; ✓ heißt „passt“, ! heißt „bitte ansehen“. Jeder Punkt hat einen Knopf zum Erledigen:
+- **Offene Zahlungen** des Jahres (abhaken oder bewusst als „kommt später“ markieren)
+- **Belege**: Ausgaben ohne Foto/PDF (ergänzen oder „Eigenbelege liegen vor“)
+- **Fahrten** ohne Ziel oder Zweck (antippen und ergänzen)
+- **10-Tage-Regel** (siehe unten)
+- **Kleinunternehmerregelung** und **Gewerbesteuer** für das Jahr
+- **Backup** und **Unterlagen** (Jahres-PDF, Fahrtenliste, CSV)
+
+Was du von Hand als erledigt markierst, wird gespeichert und ist im Backup enthalten.
+
+**10-Tage-Regel:** Regelmäßig wiederkehrende Zahlungen (Platzmiete, Versicherung, Telefon, Beiträge …), die
+zwischen dem 22.12. und dem 10.01. bezahlt werden und in dieser Zeit fällig sind, zählen für das Jahr, zu dem sie
+gehören – z. B. die Dezember-Platzmiete, bezahlt am 5. Januar, noch fürs alte Jahr. Der Assistent findet solche
+Zahlungen und du wählst je Zahlung das Jahr. Die Auswertung, das PDF und die CSV rechnen sie dann dem gewählten
+Jahr zu (mit Hinweis „10-Tage-Regel“); in der Buchungsliste steht „zählt für …“. Einmalige Ausgaben zählen immer
+im Jahr der Zahlung.
+
+**Diagramme:** In der *Auswertung* zeigen Säulen Einnahmen und Ausgaben pro Monat; ein Tipp auf einen Monat zeigt
+die genauen Beträge darunter. Eine Linie zeigt den aufsummierten Gewinn im Vergleich zum Vorjahr. Bei den Kategorien
+zeigt ein Balken den Anteil an allen Einnahmen bzw. Ausgaben.
 
 Welche Kategorie zu welchem Posten gehört, kannst du unter *Einstellungen → Kategorien Einnahmen/Ausgaben* ändern.
 
@@ -149,6 +172,13 @@ Welche Kategorie zu welchem Posten gehört, kannst du unter *Einstellungen → K
 **Kleinunternehmergrenze:** Die App warnt dezent auf der Übersicht, wenn dein Umsatz sich den Grenzen nähert
 (Standard: 25.000 € im Vorjahr, 100.000 € im laufenden Jahr, Hinweis ab 80 %). Die Werte kannst du in den
 Einstellungen anpassen, falls sich das Gesetz ändert.
+
+**Gewerbesteuer:** Eine Hundeschule ist meist ein Gewerbe. Gewerbesteuer fällt erst an, wenn der Gewinn im Jahr über
+dem **Freibetrag von 24.500 €** liegt; dann ist auch eine Gewerbesteuererklärung nötig. Die App zeigt auf der
+Übersicht einen Hinweis, sobald der Gewinn 80 % des Freibetrags erreicht, und schätzt die Steuer
+(3,5 % × Hebesatz auf den Teil über dem Freibetrag; Marburg ab 2026: 420 %). Bis zum 4-Fachen des Messbetrags wird
+sie auf die Einkommensteuer angerechnet. Freibetrag, Hebesatz und Hinweis: *Einstellungen → Gewerbesteuer*.
+Die Schätzung ist vereinfacht – die genauen Zahlen klärt die Steuerberatung.
 
 ## 5. Updates
 
@@ -198,7 +228,10 @@ Reines HTML, CSS und JavaScript, ohne Build-Werkzeuge und ohne fremde Bibliothek
 | `js/defaults.js` | Vorbelegte Kategorien, Einstellungen, Posten der Anlage EÜR |
 | `js/yearReport.js`, `js/exports.js`, `js/pdf.js` | Jahresauswertung, CSV, PDF |
 | `js/backup.js` | Backup erstellen, prüfen, zusammenführen |
-| `js/notices.js` | Kleinunternehmer-Hinweis, Backup-Erinnerung |
+| `js/notices.js` | Kleinunternehmer- und Gewerbesteuer-Hinweis, Backup-Erinnerung |
+| `js/closing.js`, `js/views/closing.js` | Jahresabschluss-Assistent und 10-Tage-Regel |
+| `js/tripPdf.js` | Fahrtenliste als PDF |
+| `js/views/charts.js` | Diagramme (SVG, ohne Bibliothek; Farben in `css/app.css` als `--chart-…`) |
 | `js/badge.js` | Zahl offener Zahlungen am App-Symbol |
 | `js/views/*.js` | Die einzelnen Bildschirme (u. a. `personPicker.js`: Kund:in-Auswahl, `contacts.js`: Kund:innen verwalten) |
 | `sw.js` | Offline-Modus (Liste aller Dateien) |

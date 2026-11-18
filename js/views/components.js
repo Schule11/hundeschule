@@ -1,7 +1,7 @@
 // Wiederverwendbare Bausteine für mehrere Bildschirme.
 
 import { h, icon, toast } from '../ui.js';
-import { categoryName, contactById, contactLabel, isOpen, daysOpen, isOverdue, markPaid, saveBooking, recordById } from '../data.js';
+import { categoryName, contactById, contactLabel, isOpen, daysOpen, isOverdue, markPaid, saveBooking, recordById, isShiftedYear, euerYear } from '../data.js';
 import { paymentLabel } from '../defaults.js';
 import { formatDate, formatSigned, formatMoney, formatProfit, formatKm } from '../format.js';
 import { openBookingForm } from './form.js';
@@ -70,6 +70,7 @@ export function bookingRow(b) {
   if (b.payment) sub.push(paymentLabel(b.payment));
   const inv = recordById('invoices', b.invoiceId);
   if (inv && !inv.cancelled) sub.push(`${inv.kind === 'receipt' ? 'Quittung' : 'Rechnung'} ${inv.number}`);
+  if (isShiftedYear(b)) sub.push(`zählt für ${euerYear(b)}`);
   const kind = b.type === 'income' ? 'Einnahme' : 'Ausgabe';
 
   return h('button', {

@@ -1,7 +1,7 @@
 // Berechnet die Jahresauswertung – genutzt vom Bildschirm "Auswertung",
 // vom CSV- und vom PDF-Export. So stimmen alle drei immer überein.
 
-import { state, categoryById, sumBookings, contactById, contactLabel, isOpen } from './data.js';
+import { state, categoryById, sumBookings, contactById, contactLabel, isOpen, euerYear } from './data.js';
 import { euerPostenFor, euerOrder } from './defaults.js';
 
 /**
@@ -14,10 +14,12 @@ import { euerPostenFor, euerOrder } from './defaults.js';
  * }
  */
 export function yearReport(year) {
+  year = Number(year);
   const y = String(year);
-  // Nur bezahlte Buchungen – offene Einnahmen zählen erst im Jahr der Zahlung
+  // Nur bezahlte Buchungen – offene Einnahmen zählen erst im Jahr der Zahlung.
+  // Zuordnung zum Jahr inkl. 10-Tage-Regel (siehe euerYear)
   const bookings = state.bookings
-    .filter((b) => !isOpen(b) && b.date.startsWith(y))
+    .filter((b) => !isOpen(b) && euerYear(b) === year)
     .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.createdAt < b.createdAt ? -1 : 1)));
 
   const totals = sumBookings(bookings);
@@ -65,7 +67,9 @@ export function yearReport(year) {
   // Pro Monat
   const months = Array.from({ length: 12 }, () => ({ income: 0, expense: 0, profit: 0, count: 0 }));
   for (const b of bookings) {
-    const m = months[Number(b.date.slice(5, 7)) - 1];
+    // Per 10-Tage-Regel aus dem Nachbarjahr: in den Dezember bzw. Januar einordnen
+    const dy = Number(b.date.slice(0, 4));
+    const m = months[dy < year ? 0 : dy > year ? 11 : Number(b.date.slice(5, 7)) - 1];
     if (b.type === 'income') m.income += b.amountCents;
     else m.expense += b.amountCents;
     m.count += 1;

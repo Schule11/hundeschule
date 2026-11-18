@@ -8,6 +8,10 @@ import { bookingsCsv, summaryCsv, reportPdf, preloadLogo } from '../exports.js';
 import { saveFile, prefersShare } from '../files.js';
 import { statBlock, yearSelect, pageHeader } from './components.js';
 import { showBookings } from './bookings.js';
+import { monthlyChart, cumulativeChart, shareBar } from './charts.js';
+import { closingCard } from './closing.js';
+import { markExported } from '../closing.js';
+import { tripPdf, tripsOfYear } from '../tripPdf.js';
 
 let selectedYear = defaultYear();
 
@@ -69,6 +73,10 @@ export function render(root) {
       h('span', { class: `stat-value ${r.totals.profit < 0 ? 'neg' : ''}` }, formatProfit(r.totals.profit))));
 
   // --- Kategorien (antippen = Buchungen dieser Kategorie zeigen) ---
+  const sharePercent = (cents, type) => {
+    const total = type === 'income' ? r.totals.income : r.totals.expense;
+    return total > 0 ? Math.round((cents / total) * 100) : 0;
+  };
   const catCard = (list) => h('section', { class: 'card card-list' },
     list.map((c) => h('button', {
       type: 'button',
@@ -77,7 +85,9 @@ export function render(root) {
     },
     h('div', { class: 'report-main' },
       h('div', { class: 'report-name' }, c.name),
-      h('div', { class: 'report-sub' }, `${c.count} ${c.count === 1 ? 'Buchung' : 'Buchungen'}${c.km ? ` · ${formatKm(c.km)} km` : ''}`)),
+      h('div', { class: 'report-sub' }, `${c.count} ${c.count === 1 ? 'Buchung' : 'Buchungen'}${c.km ? ` · ${formatKm(c.km)} km` : ''}`
+        + ` · ${sharePercent(c.cents, c.type)} %`),
+      list.length > 1 ? shareBar(c.cents, c.type === 'income' ? r.totals.income : r.totals.expense, c.type) : null),
     h('div', { class: `report-amt ${c.type === 'income' ? 'pos' : 'neg'}` }, formatSigned(c.cents, c.type)))));
 
   // --- Monate ---
@@ -97,8 +107,20 @@ export function render(root) {
         h('span', { class: m.profit < 0 ? 'neg' : '' }, formatProfit(m.profit)),
       ])));
 
+  // --- Diagramme ---
+  const now = new Date();
+  const prevReport = yearReport(selectedYear - 1);
+  const lastMonth = selectedYear === now.getFullYear() ? now.getMonth() : selectedYear > now.getFullYear() ? 0 : 11;
+  const chartCard = h('section', { class: 'card' }, monthlyChart(r.months, { year: selectedYear }));
+  const compareCard = h('section', { class: 'card' }, cumulativeChart({
+    year: selectedYear,
+    current: r.months.map((m) => m.profit),
+    previous: prevReport.bookings.length ? prevReport.months.map((m) => m.profit) : null,
+    lastMonth,
+  }));
+
   // --- Export ---
-  const exportBtn = (label, iconName, make, primary = false) => h('button', {
+  const exportBtn = (label, iconName, make, primary = false, after = null) => h('button', {
     type: 'button',
     class: `btn block${primary ? ' primary' : ' btn-small'}`,
     onclick: () => {
@@ -113,22 +135,31 @@ export function render(root) {
       }
       const share = prefersShare(file);
       saveFile(file, (ok) => { if (ok && !share) toast(`${file.name} heruntergeladen`); });
+      after?.();
     },
   }, iconName ? icon(iconName) : null, label);
+  const hasTrips = tripsOfYear(selectedYear).length > 0;
 
   mount(root,
     pageHeader('Auswertung'),
     head,
     openNote,
+    closingCard(selectedYear),
     h('section', { class: 'card export-card', 'aria-label': 'Export' },
-      exportBtn('PDF erstellen', 'download', reportPdf, true),
+      exportBtn('PDF erstellen', 'download', reportPdf, true, () => markExported(selectedYear)),
+      hasTrips ? h('div', { style: 'margin-top: 8px' }, exportBtn('Fahrtenliste (PDF)', null, tripPdf)) : null,
       h('div', { class: 'btn-pair' },
         exportBtn('Buchungen (CSV)', null, bookingsCsv),
         exportBtn('Summen (CSV)', null, summaryCsv)),
       h('p', { class: 'hint', style: 'margin-bottom: 0' },
-        'PDF: Jahresübersicht mit allen Buchungen – zum Ablegen oder für die Steuerberatung. CSV: für Excel oder Numbers.')),
+        `PDF: Jahresübersicht mit allen Buchungen – zum Ablegen oder für die Steuerberatung.${hasTrips ? ' Fahrtenliste: alle Fahrten mit Ziel, Zweck und km.' : ''} CSV: für Excel oder Numbers.`)),
     h('h2', { class: 'section-title' }, 'Für die Anlage EÜR'),
     euer,
+    h('h2', { class: 'section-title' }, 'Monate'),
+    chartCard,
+    monthTable,
+    h('h2', { class: 'section-title' }, prevReport.bookings.length ? 'Gewinn im Vergleich zum Vorjahr' : 'Gewinn im Jahresverlauf'),
+    compareCard,
     r.categories.income.length ? [h('h2', { class: 'section-title' }, 'Einnahmen nach Kategorie'), catCard(r.categories.income)] : null,
     r.categories.expense.length ? [h('h2', { class: 'section-title' }, 'Ausgaben nach Kategorie'), catCard(r.categories.expense)] : null,
     r.persons.length ? [
@@ -144,7 +175,5 @@ export function render(root) {
           h('div', { class: 'report-sub' }, `${p.count} ${p.count === 1 ? 'Zahlung' : 'Zahlungen'}`)),
         h('div', { class: 'report-amt pos' }, formatSigned(p.cents, 'income'))))),
     ] : null,
-    h('h2', { class: 'section-title' }, 'Monate'),
-    monthTable,
   );
 }
