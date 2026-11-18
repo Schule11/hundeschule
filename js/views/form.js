@@ -3,9 +3,10 @@
 import { h, icon, toast, confirmDialog, openImageViewer, isTouchDevice } from '../ui.js';
 import {
   state, categoriesFor, categoryById, saveBooking, deleteBooking, getReceipt, receiptToBlob, saveContact,
-  productsFor, recordById, routesSorted, saveRecord,
+  productsFor, recordById, routesSorted, saveRecord, recentCategoryIds,
 } from '../data.js';
 import { personPicker } from './personPicker.js';
+import { disclosurePicker, pickerOption, pickerGroup } from './picker.js';
 import { PAYMENT_METHODS, productPriceLabel } from '../defaults.js';
 import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm, normalizeText } from '../format.js';
 import { prepareReceipt } from '../image.js';
@@ -135,7 +136,11 @@ export function openBookingForm(existing = null) {
     'Hinweis: Kostet eine Anschaffung (z. B. ein Gerät, das länger als ein Jahr hält) netto mehr als 800 €, '
     + 'muss sie meist über mehrere Jahre abgeschrieben werden. Im Zweifel bei Steuerberatung nachfragen.');
 
-  const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Kategorie' });
+  // Kategorie als aufklappbare Liste (zuletzt verwendete oben)
+  const catPicker = disclosurePicker({ id: 'cat-picker', placeholder: 'Kategorie wählen', label: 'Kategorie' });
+  const catList = h('div', { class: 'picker-list', role: 'listbox', 'aria-label': 'Kategorien' });
+  catPicker.panel.append(catList);
+  catPicker.onOpen(() => renderChips());
 
   const personLabel = h('label', { class: 'lbl', for: 'person' }, 'Kund:in (optional)');
   const picker = personPicker({ initialId: existing?.personId, onChange: () => { st.dirty = true; } });
@@ -233,7 +238,7 @@ export function openBookingForm(existing = null) {
       tripWrap,
 
       h('div', { class: 'lbl', id: 'cat-label' }, 'Kategorie'),
-      chips,
+      catPicker.el,
 
       personWrap,
 
@@ -332,7 +337,7 @@ export function openBookingForm(existing = null) {
       amountInput.placeholder = `ab ${centsToInput(p.priceCents)}`;
       amountInput.focus();
     } else if (!isEdit) {
-      if (st.type === 'income' && !picker.hasSelection() && !state.contacts.length) picker.input.focus();
+      if (st.type === 'income' && !picker.hasSelection() && !state.contacts.length) picker.openSearch();
       else document.activeElement?.blur();
     }
   }
@@ -453,39 +458,51 @@ export function openBookingForm(existing = null) {
     if (!show) personWrap.replaceChildren();
   }
 
+  /** Kategorie-Liste füllen und gewählten Wert anzeigen */
   function renderChips() {
-    const cats = categoriesFor(st.type, { recentFirst: !isEdit });
-    chips.replaceChildren(...cats.map((c) => h('button', {
-      type: 'button',
-      class: 'chip',
-      'aria-pressed': String(c.id === st.categoryId),
-      onclick: (e) => {
-        st.categoryId = c.id;
-        st.dirty = true;
-        clearError();
-        // Andere Kategorie als der Preislisten-Eintrag? Dann Verknüpfung lösen
-        const prod = currentProduct();
-        if (prod && prod.categoryId !== c.id) { st.productId = null; renderProducts(); }
-        for (const el of chips.children) el.setAttribute('aria-pressed', String(el === e.currentTarget));
-        const wasMileage = st.mileage;
-        updateMode();
-        if (st.mileage && !wasMileage) {
-          // Fahrtkosten: weiter zur Kilometer-Eingabe
-          amountInput.focus();
-          amountInput.select();
-        } else if (isEdit) {
-          // beim Bearbeiten nichts automatisch fokussieren
-        } else if (st.type === 'income' && !picker.hasSelection()) {
-          // Einnahme: weiter zur Kund:in. Gibt es schon Namen, Tastatur schließen,
-          // damit die Vorschläge zu sehen sind; sonst gleich tippen lassen.
-          if (state.contacts.length) document.activeElement?.blur();
-          else picker.input.focus();
-        } else if (!descInput.value) {
-          // sonst direkt weiter zur Beschreibung
-          descInput.focus();
-        }
-      },
-    }, c.name)));
+    const cats = categoriesFor(st.type);
+    const current = categoryById(st.categoryId);
+    catPicker.setValue(current && current.type === st.type ? current.name : null);
+    const recentIds = cats.length > 6 ? recentCategoryIds(st.type, 3) : [];
+    const recent = recentIds.map((id) => cats.find((c) => c.id === id)).filter(Boolean);
+    const rest = cats.filter((c) => !recent.includes(c));
+    const option = (c) => pickerOption({
+      label: c.name,
+      selected: c.id === st.categoryId,
+      onClick: () => chooseCategory(c),
+      data: { id: c.id },
+    });
+    catList.replaceChildren(
+      ...(recent.length ? [pickerGroup('Zuletzt verwendet'), ...recent.map(option), pickerGroup('Alle Kategorien')] : []),
+      ...rest.map(option),
+    );
+  }
+
+  function chooseCategory(c) {
+    st.categoryId = c.id;
+    st.dirty = true;
+    clearError();
+    catPicker.close();
+    // Andere Kategorie als der Preislisten-Eintrag? Dann Verknüpfung lösen
+    const prod = currentProduct();
+    if (prod && prod.categoryId !== c.id) { st.productId = null; renderProducts(); }
+    renderChips();
+    const wasMileage = st.mileage;
+    updateMode();
+    if (st.mileage && !wasMileage) {
+      // Fahrtkosten: weiter zur Kilometer-Eingabe
+      amountInput.focus();
+      amountInput.select();
+    } else if (isEdit) {
+      // beim Bearbeiten nichts automatisch fokussieren
+    } else if (st.type === 'income' && !picker.hasSelection()) {
+      // Einnahme: als Nächstes die Kund:in. Ohne gespeicherte Namen gleich tippen lassen.
+      if (state.contacts.length) document.activeElement?.blur();
+      else picker.openSearch();
+    } else if (!descInput.value) {
+      // sonst direkt weiter zur Beschreibung
+      descInput.focus();
+    }
   }
 
   function updatePayChips() {
@@ -724,6 +741,8 @@ export function openBookingForm(existing = null) {
   }
 
   function close() {
+    catPicker.close();
+    picker.close();
     document.removeEventListener('keydown', onKey);
     sheet.remove();
     document.body.classList.remove('sheet-open');

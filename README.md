@@ -29,7 +29,7 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 
 | Bereich | Was du dort machst |
 |---|---|
-| **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Betrag, Kategorie, Kund:in, Beschreibung, Zahlung, Datum, Belegfoto. Oben rechts ✓ speichert, ✕ bricht ab. |
+| **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Preisliste, Betrag, Kategorie und Kund:in (je als aufklappbare Liste), Beschreibung, Zahlung, Datum, Beleg. Oben rechts ✓ speichert, ✕ bricht ab. |
 | **Menüleiste unten** | Übersicht, Buchungen, Auswertung |
 | **Übersicht** | Offene Zahlungen zum Abhaken, Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
@@ -54,13 +54,13 @@ Rechnungsbetrag ein; für die EÜR zählt nur der Anteil.
 Fehlt bei Ausgaben noch ein Beleg, zeigt die Übersicht das an; in *Buchungen* filterst du mit „Ohne Beleg“.
 Fahrten brauchen keinen Beleg.
 
-**Kund:innen:** Bei einer Einnahme (und auf Wunsch auch bei einer Ausgabe, z. B. einer Fahrt) wählst du,
-von wem das Geld kommt. Die zuletzt benutzten Namen stehen als Knöpfe bereit; beim Tippen wird gefiltert.
+**Kund:innen:** Bei einer Einnahme (und bei Fahrten) wählst du, um wen es geht. Ein Tipp auf „Kund:in wählen“
+klappt die Liste auf: oben ein Suchfeld, darunter die zuletzt verwendeten Namen und alle anderen von A–Z.
 Ein neuer Name wird beim Speichern automatisch angelegt. Unter *Einstellungen → Kund:innen* kannst du Namen
 ändern, einen Hundenamen ergänzen (wird mit angezeigt und ist durchsuchbar) und alle Buchungen einer Person ansehen.
 Die *Auswertung* zeigt außerdem „Einnahmen nach Kund:in“.
 
-**Offene Zahlungen:** Bei einer Einnahme wählst du unter **„Zahlung“** die Zahlungsart (Bar, Überweisung, PayPal)
+**Offene Zahlungen:** Bei einer Einnahme wählst du unter **„Zahlung“** die Zahlungsart (Bar oder Überweisung)
 oder **„Noch offen“**. Ohne Auswahl gilt die Einnahme als bezahlt. Offene Einnahmen
 stehen ganz oben auf der *Übersicht* unter „Offene Zahlungen“. Sobald bezahlt wurde, tippst du auf den **Kreis**
 („Rückgängig“ ist kurz möglich). Ist eine Zahlung seit **14 Tagen** offen (einstellbar unter *Einstellungen →

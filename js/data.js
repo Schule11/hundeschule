@@ -177,6 +177,17 @@ export function categoriesFor(type, { recentFirst = false } = {}) {
   return [...recent, ...rest];
 }
 
+/** Die zuletzt benutzten Kategorien eines Typs (IDs, neueste zuerst) */
+export function recentCategoryIds(type, limit = 3) {
+  const lastUsed = new Map();
+  for (const b of state.bookings) {
+    if (b.type !== type) continue;
+    const prev = lastUsed.get(b.categoryId);
+    if (!prev || prev < b.createdAt) lastUsed.set(b.categoryId, b.createdAt);
+  }
+  return [...lastUsed.entries()].sort((a, b) => (a[1] < b[1] ? 1 : -1)).slice(0, limit).map(([id]) => id);
+}
+
 export function bookingCount(categoryId) {
   return state.bookings.filter((b) => b.categoryId === categoryId).length;
 }

@@ -146,9 +146,11 @@ export function euerOrder(name) {
 export const PAYMENT_METHODS = [
   { value: 'cash', label: 'Bar' },
   { value: 'transfer', label: 'Überweisung' },
-  { value: 'paypal', label: 'PayPal' },
 ];
 
+// Auch nicht mehr angebotene Zahlungsarten (z. B. PayPal) bei alten Buchungen anzeigen
+const PAYMENT_LABELS = { cash: 'Bar', transfer: 'Überweisung', paypal: 'PayPal' };
+
 export function paymentLabel(value) {
-  return PAYMENT_METHODS.find((p) => p.value === value)?.label || '';
+  return PAYMENT_LABELS[value] || '';
 }
