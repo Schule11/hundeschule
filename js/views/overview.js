@@ -1,8 +1,8 @@
 // Bildschirm "Übersicht": Kennzahlen (Monat | Jahr), offene Zahlungen, Hinweise, zuletzt erfasst.
 
-import { h, mount } from '../ui.js';
+import { h, mount, icon } from '../ui.js';
 import { isIOS, isStandalone } from '../ui.js';
-import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, isOverdue } from '../data.js';
+import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, isOverdue, needsReceipt } from '../data.js';
 import { formatMoney } from '../format.js';
 import { showBookings } from './bookings.js';
 import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
@@ -65,6 +65,7 @@ export function render(root) {
         kpiRow('Gewinn', 'profit', profit(monthSums.profit), profit(yearSums.profit), 'kpi-total')),
       big ? h('p', { class: 'kpi-note' }, 'Auf volle Euro gerundet – genaue Beträge in der Auswertung.') : null),
 
+    receiptHint(curYear),
     openPayments(),
     limitNotices(),
     backupNotice(),
@@ -101,6 +102,20 @@ window.addEventListener('resize', () => fitKpi(document.querySelector('.kpi-grid
 function rerender(root) {
   root.replaceChildren();
   render(root);
+}
+
+/** Dezente Zeile: Ausgaben dieses Jahres, zu denen noch ein Beleg fehlt */
+function receiptHint(year) {
+  const n = state.bookings.filter((b) => needsReceipt(b) && b.date.startsWith(String(year))).length;
+  if (!n) return null;
+  return h('button', {
+    type: 'button',
+    class: 'hint-row',
+    onclick: () => showBookings({ year: String(year), type: 'expense', noReceipt: true }),
+  },
+  icon('receipt', 20),
+  h('span', null, `${n} ${n === 1 ? 'Ausgabe' : 'Ausgaben'} ohne Beleg`),
+  h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'));
 }
 
 /** Offene Zahlungen zum Abhaken – ganz oben, überfällige rot markiert */

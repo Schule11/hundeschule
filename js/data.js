@@ -4,7 +4,7 @@
 // Nur die Belegfotos bleiben in der Datenbank und werden bei Bedarf geladen.
 
 import * as db from './db.js';
-import { DEFAULT_SETTINGS, defaultCategoryRecords } from './defaults.js';
+import { DEFAULT_SETTINGS, defaultCategoryRecords, defaultProductRecords, EPOCH } from './defaults.js';
 import { todayISO } from './format.js';
 
 /**
@@ -20,6 +20,11 @@ import { todayISO } from './format.js';
  *         NICHT zu Summen, EÜR und Umsatz – erst wenn das Geld da ist (Zuflussprinzip).
  *   serviceDate: Datum der Stunde/Leistung (bei offenen Einnahmen), sonst null.
  *         Bei offenen Einnahmen ist `date` = Datum der Stunde, nach dem Abhaken = Zahlungsdatum.
+ *   productId, quantity: aus der Preisliste (quantity = Anzahl 15-Minuten-Einheiten o. Ä.)
+ *   fullAmountCents, businessPercent: Rechnungsbetrag und betrieblicher Anteil;
+ *         amountCents ist dann nur der betriebliche Teil (zählt für die EÜR)
+ *   tripTo, tripPurpose, roundTrip, kmEntered: Fahrten (Ziel, Zweck, Hin- und Rückfahrt,
+ *         eingegebene km; km = kmEntered × 2 bei Hin- und Rückfahrt)
  *   createdAt, updatedAt
  * }
  */
@@ -27,6 +32,12 @@ export const state = {
   bookings: [],
   categories: [],
   contacts: [], // Kund:innen: { id, name, dog, createdAt, updatedAt }
+  products: [], // Preisliste
+  routes: [],   // häufige Strecken: { id, name, km, roundTrip, purpose }
+  invoices: [], // Rechnungen & Quittungen
+  vouchers: [], // Gutscheine
+  cards: [],    // 10er-Karten
+  courses: [],  // Gruppenkurse
   settings: { ...DEFAULT_SETTINGS },
   local: {}, // nur für dieses Gerät (z. B. Zeitpunkt des letzten Backups)
 };
@@ -62,15 +73,20 @@ export const nowISO = () => new Date().toISOString();
 
 // ---------- Laden ----------
 
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
+
+/** Weitere Listen, die genauso gespeichert, gesichert und zusammengeführt werden */
+export const RECORD_STORES = ['products', 'routes', 'invoices', 'vouchers', 'cards', 'courses'];
 
 export async function load() {
-  let [bookings, categories, contacts, meta] = await Promise.all([
+  let [bookings, categories, contacts, meta, ...records] = await Promise.all([
     db.getAll('bookings'),
     db.getAll('categories'),
     db.getAll('contacts'),
     db.getAll('meta'),
+    ...RECORD_STORES.map((name) => db.getAll(name)),
   ]);
+  RECORD_STORES.forEach((name, i) => { state[name] = records[i]; });
   const m = Object.fromEntries(meta.map((x) => [x.key, x.value]));
 
   if (categories.length === 0) {
@@ -95,7 +111,36 @@ async function migrate(from) {
     state.settings = { ...state.settings, businessName: DEFAULT_SETTINGS.businessName };
     await db.write(['meta'], (s) => s.meta.put({ key: 'settings', value: state.settings }));
   }
+  // Version 3: Kategorien "Beratung" und "Gutscheine", Preisliste vorbelegen
+  if (from < 3) await ensureV3Defaults();
   await db.write(['meta'], (s) => s.meta.put({ key: 'dataVersion', value: DATA_VERSION }));
+}
+
+/** Kategorien "Beratung"/"Gutscheine" und die Preisliste ergänzen, falls sie fehlen */
+export async function ensureV3Defaults() {
+  {
+    const byId = (id) => state.categories.find((c) => c.id === id);
+    const income = state.categories.filter((c) => c.type === 'income');
+    const maxOrder = Math.max(0, ...income.map((c) => c.order));
+    const added = [];
+    if (!byId('cat-beratung')) {
+      const after = byId('cat-einzeltraining');
+      added.push({ id: 'cat-beratung', key: 'beratung', type: 'income', name: 'Beratung', euer: '', mileage: false,
+        businessPercent: 100, order: after ? after.order + 0.5 : maxOrder + 1, updatedAt: EPOCH });
+    }
+    if (!byId('cat-gutscheine')) {
+      const before = byId('cat-sonstiges-einnahmen');
+      added.push({ id: 'cat-gutscheine', key: 'gutscheine', type: 'income', name: 'Gutscheine', euer: '', mileage: false,
+        businessPercent: 100, order: before ? before.order - 0.5 : maxOrder + 2, updatedAt: EPOCH });
+    }
+    const products = state.products.length ? [] : defaultProductRecords();
+    await db.write(['categories', 'products'], (s) => {
+      for (const c of added) s.categories.put(c);
+      for (const p of products) s.products.put(p);
+    });
+    state.categories.push(...added);
+    state.products.push(...products);
+  }
 }
 
 // ---------- Kategorien ----------
@@ -270,6 +315,77 @@ export async function deleteContact(id) {
   for (const b of unlinked) replaceInState(state.bookings, b);
   emitChange();
   return unlinked.length;
+}
+
+// ---------- Allgemeine Listen (Preisliste, Strecken, Rechnungen, …) ----------
+
+const PREFIX = { products: 'prod', routes: 'route', invoices: 'inv', vouchers: 'gs', cards: 'card', courses: 'course' };
+
+export function recordById(name, id) {
+  return id ? state[name].find((x) => x.id === id) || null : null;
+}
+
+/** Eintrag in einer der Listen speichern (neu oder geändert) */
+export async function saveRecord(name, input, { silent = false } = {}) {
+  const existing = recordById(name, input.id);
+  const now = nowISO();
+  const sameGroup = state[name];
+  const record = {
+    ...existing,
+    ...input,
+    id: existing?.id || uid(PREFIX[name]),
+    order: existing?.order ?? input.order ?? Math.max(-1, ...sameGroup.map((x) => x.order ?? -1)) + 1,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+  };
+  await db.write([name], (s) => s[name].put(record));
+  replaceInState(state[name], record);
+  if (!silent) emitChange();
+  return record;
+}
+
+export async function deleteRecord(name, id) {
+  const now = nowISO();
+  await db.write([name, 'tombstones'], (s) => {
+    s[name].delete(id);
+    s.tombstones.put({ id, kind: name, deletedAt: now });
+  });
+  state[name] = state[name].filter((x) => x.id !== id);
+  emitChange();
+}
+
+/** Reihenfolge ändern (direction -1 = nach oben, +1 = nach unten) innerhalb von list */
+export async function moveRecord(name, list, id, direction) {
+  const i = list.findIndex((x) => x.id === id);
+  const j = i + direction;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  const reordered = [...list];
+  [reordered[i], reordered[j]] = [reordered[j], reordered[i]];
+  const now = nowISO();
+  const changed = [];
+  reordered.forEach((x, idx) => { if (x.order !== idx) changed.push({ ...x, order: idx, updatedAt: now }); });
+  await db.write([name], (s) => { for (const x of changed) s[name].put(x); });
+  for (const x of changed) replaceInState(state[name], x);
+  emitChange();
+}
+
+// ---------- Preisliste ----------
+
+export function productsFor(type) {
+  return state.products.filter((p) => (p.type || 'income') === type).sort((a, b) => a.order - b.order);
+}
+
+// ---------- Häufige Strecken ----------
+
+export function routesSorted() {
+  return [...state.routes].sort((a, b) => a.order - b.order);
+}
+
+// ---------- Belege ----------
+
+/** Ausgaben ohne Beleg (Fahrtkosten brauchen keinen Beleg) */
+export function needsReceipt(b) {
+  return b.type === 'expense' && !b.receiptId && !categoryById(b.categoryId)?.mileage;
 }
 
 // ---------- Umsatz (für die Kleinunternehmergrenze) ----------

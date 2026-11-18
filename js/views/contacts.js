@@ -1,6 +1,6 @@
 // Kund:innen verwalten: Liste mit Suche, anlegen, bearbeiten, löschen.
 
-import { h, toast, openSheet, confirmDialog } from '../ui.js';
+import { h, mount, toast, openSheet, confirmDialog } from '../ui.js';
 import {
   onChange, contactsSorted, contactLabel, contactStats, saveContact, deleteContact, findContactByName,
 } from '../data.js';
@@ -45,7 +45,7 @@ export function openContactList(onClose = null) {
     })));
   }
 
-  body.append(
+  mount(body, 
     h('div', { class: 'filters' }, search),
     h('div', { style: 'margin: 12px 0 16px' },
       h('button', { type: 'button', class: 'btn block', onclick: () => openContactEditor(null, close) }, '+ Neue Kund:in')),
@@ -106,7 +106,7 @@ export function openContactEditor(contact = null, closeList = null) {
   }
 
   const stats = contact ? contactStats(contact.id) : null;
-  body.append(
+  mount(body, 
     h('label', { class: 'lbl', for: 'contact-name', style: 'margin-top: 4px' }, 'Name'),
     nameInput,
     h('label', { class: 'lbl', for: 'contact-dog' }, 'Hund (optional)'),

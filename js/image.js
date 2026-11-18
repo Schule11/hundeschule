@@ -46,3 +46,14 @@ export async function resizeImage(file) {
     URL.revokeObjectURL(url);
   }
 }
+
+const MAX_PDF_BYTES = 15 * 1024 * 1024;
+
+/** Beleg vorbereiten: Fotos werden verkleinert, PDFs unverändert übernommen. */
+export async function prepareReceipt(file) {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+  if (!isPdf) return resizeImage(file);
+  if (file.size > MAX_PDF_BYTES) throw new Error('Das PDF ist größer als 15 MB. Bitte eine kleinere Datei wählen.');
+  const data = await new Response(file).arrayBuffer();
+  return { data, type: 'application/pdf', name: file.name || 'Beleg.pdf', size: file.size };
+}

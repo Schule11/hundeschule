@@ -36,9 +36,23 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
 | **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
 
-**Fahrtkosten:** Wählst du die Kategorie „Fahrtkosten“, gibst du statt eines Betrags die gefahrenen Kilometer ein.
-Die App rechnet mit der Kilometerpauschale aus den Einstellungen (Standard 0,30 €/km).
-Änderst du die Pauschale, gilt der neue Wert nur für neue Fahrten.
+**Preisliste:** Oben im Formular stehen deine Leistungen (z. B. Einzelstunde 80 €, Telefonberatung 20 € pro 15 Min,
+Gutschein ab 10 €). Ein Tipp füllt Betrag, Kategorie und Beschreibung aus; bei der Telefonberatung wählst du die Dauer
+mit − und +. Ändern, sortieren, ergänzen (auch Vorlagen für Ausgaben wie die Platzmiete): *Einstellungen → Preisliste*.
+
+**Fahrtkosten:** Wählst du die Kategorie „Fahrtkosten“, gibst du statt eines Betrags die gefahrenen Kilometer ein,
+dazu **Ziel** und **Zweck** (das will das Finanzamt bei Rückfragen sehen) und ob es eine **Hin- und Rückfahrt** war
+(die km werden dann verdoppelt). Häufige Strecken wählst du mit einem Tipp; neue merkst du dir direkt beim Erfassen
+oder unter *Einstellungen → Fahrtkosten & Strecken*. Die App rechnet mit der Kilometerpauschale (Standard 0,30 €/km);
+eine Änderung gilt nur für neue Fahrten.
+
+**Privatanteil:** Nutzt du etwas auch privat (z. B. Handy und Internet), stellst du bei der Ausgaben-Kategorie den
+betrieblichen Anteil ein (*Einstellungen → Kategorien Ausgaben*, z. B. 50 %). Du gibst dann den ganzen
+Rechnungsbetrag ein; für die EÜR zählt nur der Anteil.
+
+**Belege:** Zu jeder Buchung kannst du ein Foto oder ein PDF speichern (z. B. eine Rechnung aus einer Mail).
+Fehlt bei Ausgaben noch ein Beleg, zeigt die Übersicht das an; in *Buchungen* filterst du mit „Ohne Beleg“.
+Fahrten brauchen keinen Beleg.
 
 **Kund:innen:** Bei einer Einnahme (und auf Wunsch auch bei einer Ausgabe, z. B. einer Fahrt) wählst du,
 von wem das Geld kommt. Die zuletzt benutzten Namen stehen als Knöpfe bereit; beim Tippen wird gefiltert.

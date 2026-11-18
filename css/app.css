@@ -634,6 +634,66 @@ select.field {
 
 .form-actions { margin-top: 30px; display: grid; gap: 6px; }
 
+/* ---------- Hinweiszeile (z. B. fehlende Belege) ---------- */
+
+.hint-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: -4px 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.hint-row .icon { color: var(--accent-ink); }
+.hint-row span:nth-child(2) { flex: 1; }
+.hint-row .chevron { font-size: 22px; }
+
+/* ---------- Preisliste & Fahrten im Formular ---------- */
+
+.product-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 2px 16px 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.product-row::-webkit-scrollbar { display: none; }
+
+.product-chip {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 16px;
+  border-radius: 18px;
+}
+
+.product-name { font-weight: 650; }
+.product-price { font-size: 13.5px; opacity: 0.8; }
+
+.qty-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.qty-title { color: var(--muted); font-weight: 600; flex: 1; }
+.qty-btn { width: 42px; height: 42px; font-size: 22px; font-weight: 700; }
+.qty-value { min-width: 70px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.receipt-pdf { display: grid; place-items: center; align-content: center; gap: 2px; color: var(--accent-ink); font-weight: 700; font-size: 13px; }
+
+.filter-chips { gap: 8px; }
+.filter-chips:empty { display: none; }
+.filter-chip { min-height: 40px; font-size: 15px; }
+
 /* ---------- Offene Zahlungen ---------- */
 
 .open-section { margin-bottom: 20px; }

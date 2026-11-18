@@ -5,7 +5,7 @@
 // Bei jeder Änderung an der App: VERSION erhöhen (und in js/config.js),
 // damit Handys die neuen Dateien laden.
 
-const VERSION = '1.3.1';
+const VERSION = '1.4.0';
 const CACHE = `hundeschule-${VERSION}`;
 
 const FILES = [
@@ -35,7 +35,9 @@ const FILES = [
   'js/views/form.js',
   'js/views/overview.js',
   'js/views/personPicker.js',
+  'js/views/prices.js',
   'js/views/report.js',
+  'js/views/routes.js',
   'js/views/settings.js',
   'icons/apple-touch-icon.png',
   'icons/favicon-32.png',

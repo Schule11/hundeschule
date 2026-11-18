@@ -13,6 +13,8 @@ import { smallBusinessStatus } from '../notices.js';
 import { openCategoryList } from './categories.js';
 import { pageHeader } from './components.js';
 import { openContactList } from './contacts.js';
+import { openPriceList } from './prices.js';
+import { routesBlock } from './routes.js';
 import { badgeSupported, enableBadge } from '../badge.js';
 
 const plain = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
@@ -78,7 +80,7 @@ function navRow(label, value, onClick, { id = null } = {}) {
 
 function openNamePage(onClose) {
   const { body } = openSheet({ title: 'Hundeschule', onClose });
-  body.append(h('section', { class: 'card' },
+  mount(body, h('section', { class: 'card' },
     settingField({
       id: 'set-name', label: 'Name (steht auf dem PDF)', value: state.settings.businessName || '',
       onSave: async (v) => {
@@ -121,7 +123,7 @@ function openPaymentsPage(onClose) {
   } else {
     badgeRow = h('p', { class: 'hint' }, 'Die Zahl offener Zahlungen am App-Symbol gibt es nur in der installierten App (iPhone ab iOS 16.4).');
   }
-  body.append(h('section', { class: 'card' },
+  mount(body, h('section', { class: 'card' },
     settingField({
       id: 'set-pay-days', label: 'Erinnern, wenn offen seit', unit: 'Tagen', inputmode: 'numeric',
       value: String(s.paymentReminderDays ?? 14),
@@ -136,8 +138,9 @@ function openPaymentsPage(onClose) {
 }
 
 function openMileagePage(onClose) {
-  const { body } = openSheet({ title: 'Fahrtkosten', onClose });
-  body.append(h('section', { class: 'card' },
+  const routes = routesBlock();
+  const { body } = openSheet({ title: 'Fahrtkosten', onClose: () => { routes.dispose(); onClose?.(); } });
+  mount(body, h('section', { class: 'card' },
     settingField({
       id: 'set-km', label: 'Kilometerpauschale', unit: '€ pro km', inputmode: 'decimal',
       value: centsToInput(state.settings.kmRateCents),
@@ -150,7 +153,9 @@ function openMileagePage(onClose) {
         await updateSettings({ kmRateCents: cents }, { silent: true });
         return centsToInput(cents);
       },
-    })));
+    })),
+    h('h2', { class: 'section-title' }, 'Häufige Strecken'),
+    routes.el);
 }
 
 function openLimitsPage(onClose) {
@@ -172,7 +177,7 @@ function openLimitsPage(onClose) {
     },
   });
   const manualPrev = s.manualRevenue?.[String(year - 1)];
-  body.append(
+  mount(body, 
     h('section', { class: 'card' }, limitStatus),
     h('section', { class: 'card' },
       moneySetting('limitPrevYearCents', 'Grenze Vorjahresumsatz', 'Wird sie in einem Jahr überschritten, entfällt die Regelung im Folgejahr.'),
@@ -267,6 +272,7 @@ export function render(root) {
 
     h('h2', { class: 'section-title' }, 'Listen'),
     h('div', { class: 'rows group' },
+      navRow('Preisliste', String(state.products.length), () => openPriceList(refresh), { id: 'nav-prices' }),
       navRow('Kategorien Einnahmen', String(categoriesFor('income').length), () => openCategoryList('income', refresh), { id: 'nav-cat-income' }),
       navRow('Kategorien Ausgaben', String(categoriesFor('expense').length), () => openCategoryList('expense', refresh), { id: 'nav-cat-expense' }),
       navRow('Kund:innen', String(state.contacts.length), () => openContactList(refresh), { id: 'nav-contacts' })),
@@ -274,7 +280,7 @@ export function render(root) {
     h('h2', { class: 'section-title' }, 'Regeln'),
     h('div', { class: 'rows group' },
       navRow('Offene Zahlungen', `nach ${s.paymentReminderDays ?? 14} Tagen`, () => openPaymentsPage(refresh), { id: 'nav-payments' }),
-      navRow('Fahrtkosten', `${formatMoney(s.kmRateCents)}/km`, () => openMileagePage(refresh), { id: 'nav-km' }),
+      navRow('Fahrtkosten & Strecken', `${formatMoney(s.kmRateCents)}/km`, () => openMileagePage(refresh), { id: 'nav-km' }),
       navRow('Kleinunternehmer', `${limits.percentOfPrevLimit} % der Grenze`, () => openLimitsPage(refresh), { id: 'nav-limits' })),
 
     h('h2', { class: 'section-title' }, 'Datensicherung'),

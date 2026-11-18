@@ -1,7 +1,7 @@
 // Bildschirm "Buchungen": Liste nach Monaten, mit Suche und Filtern.
 
 import { h, mount } from '../ui.js';
-import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears, contactById, contactLabel, isOpen, sumOpen } from '../data.js';
+import { state, categoriesFor, categoryName, sortBookings, sumBookings, bookingYears, contactById, contactLabel, isOpen, sumOpen, needsReceipt } from '../data.js';
 import { paymentLabel } from '../defaults.js';
 import { formatSigned, formatMoney, formatDate, centsToInput, monthLabel, normalizeText } from '../format.js';
 import { bookingRow, yearSelect, pageHeader } from './components.js';
@@ -12,18 +12,20 @@ const filters = {
   type: 'all',
   category: 'all',
   person: null, // nur Buchungen einer Kund:in (aus Auswertung/Kundenliste)
+  noReceipt: false, // nur Ausgaben ohne Beleg
   q: '',
 };
 
 /** Liste mit Filter öffnen (z. B. aus der Auswertung: "alle Buchungen dieser Kategorie") */
-export function showBookings({ year = 'all', type = 'all', category = 'all', person = null } = {}) {
+export function showBookings({ year = 'all', type = 'all', category = 'all', person = null, noReceipt = false } = {}) {
   if (type === 'open') year = 'all';
-  Object.assign(filters, { year, type, category, person, q: '' });
+  Object.assign(filters, { year, type, category, person, noReceipt, q: '' });
   location.hash = '#/buchungen';
 }
 
 export function render(root) {
   const results = h('div', { 'aria-live': 'polite' });
+  let updateReceiptChip = null;
 
   const search = h('input', {
     class: 'field field-search',
@@ -92,11 +94,14 @@ export function render(root) {
       if (filters.type === 'open' ? !isOpen(b) : (filters.type !== 'all' && b.type !== filters.type)) return false;
       if (filters.category !== 'all' && b.categoryId !== filters.category) return false;
       if (filters.person && (b.personId || 'none') !== filters.person) return false;
+      if (filters.noReceipt && !needsReceipt(b)) return false;
       if (q) {
         const hay = normalizeText([
           b.description,
           categoryName(b.categoryId),
           contactLabel(contactById(b.personId)),
+          b.tripTo,
+          b.tripPurpose,
           centsToInput(b.amountCents),
           formatDate(b.date),
           paymentLabel(b.payment),
@@ -108,6 +113,7 @@ export function render(root) {
   }
 
   function renderResults() {
+    updateReceiptChip?.();
     const list = sortBookings(filtered());
     const total = sumBookings(list);
     const isFiltered = filters.q || filters.type !== 'all' || filters.category !== 'all' || filters.person;
@@ -122,6 +128,10 @@ export function render(root) {
       results.replaceChildren(h('div', { class: 'empty' },
         h('strong', null, 'Keine offenen Zahlungen'),
         'Alles bezahlt.'));
+      return;
+    }
+    if (!list.length && filters.noReceipt) {
+      results.replaceChildren(h('div', { class: 'empty' }, h('strong', null, 'Alle Belege vorhanden'), 'Zu jeder Ausgabe gibt es ein Foto oder PDF.'));
       return;
     }
     if (!list.length) {
@@ -178,6 +188,30 @@ export function render(root) {
       }, '✕'));
   }
 
+  // Schalter "Ohne Beleg": zeigt Ausgaben, bei denen noch Foto oder PDF fehlt
+  const receiptCount = () => state.bookings
+    .filter((b) => needsReceipt(b) && (filters.year === 'all' || b.date.startsWith(filters.year))).length;
+  const receiptChip = h('button', {
+    type: 'button',
+    class: 'chip filter-chip',
+    'aria-pressed': String(filters.noReceipt),
+    onclick: () => {
+      filters.noReceipt = !filters.noReceipt;
+      if (filters.noReceipt && filters.type !== 'expense') {
+        filters.type = 'expense';
+        for (const b of typeFilter.children) b.setAttribute('aria-pressed', String(b.dataset.type === 'expense'));
+        fillCategories();
+      }
+      receiptChip.setAttribute('aria-pressed', String(filters.noReceipt));
+      renderResults();
+    },
+  });
+  updateReceiptChip = () => {
+    const n = receiptCount();
+    receiptChip.textContent = `Ohne Beleg (${n})`;
+    receiptChip.hidden = n === 0 && !filters.noReceipt;
+  };
+
   fillCategories();
   mount(root,
     pageHeader('Buchungen'),
@@ -185,8 +219,9 @@ export function render(root) {
       search,
       typeFilter,
       h('div', { class: 'filter-row' }, yearSel, catSel),
-      personChip),
+      h('div', { class: 'chips filter-chips' }, receiptChip, personChip)),
     results,
   );
+
   renderResults();
 }

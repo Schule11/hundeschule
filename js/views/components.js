@@ -58,12 +58,13 @@ function openRow(b, title, cat, person) {
 export function bookingRow(b) {
   const cat = categoryName(b.categoryId);
   const person = contactLabel(contactById(b.personId));
-  const title = b.description || person || cat;
+  const title = b.description || (b.tripTo ? `Fahrt: ${b.tripTo}` : '') || person || cat;
   if (isOpen(b)) return openRow(b, title, cat, person);
   const sub = [formatDate(b.date)];
   if (title !== cat) sub.push(cat);
   if (person && title !== person) sub.push(person);
   if (b.km) sub.push(`${formatKm(b.km)} km`);
+  if (b.businessPercent && b.businessPercent < 100) sub.push(`${b.businessPercent} % von ${formatMoney(b.fullAmountCents)}`);
   if (b.payment) sub.push(paymentLabel(b.payment));
   const kind = b.type === 'income' ? 'Einnahme' : 'Ausgabe';
 

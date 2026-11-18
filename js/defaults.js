@@ -10,9 +10,11 @@ export const EPOCH = '1970-01-01T00:00:00.000Z';
 export const DEFAULT_CATEGORIES = [
   // Einnahmen
   { key: 'einzeltraining', type: 'income', name: 'Einzeltraining' },
+  { key: 'beratung', type: 'income', name: 'Beratung' },
   { key: 'gruppenkurse', type: 'income', name: 'Gruppenkurse' },
   { key: 'welpenkurse', type: 'income', name: 'Welpenkurse' },
   { key: 'workshops', type: 'income', name: 'Workshops/Seminare' },
+  { key: 'gutscheine', type: 'income', name: 'Gutscheine' },
   { key: 'sonstiges-einnahmen', type: 'income', name: 'Sonstiges' },
   // Ausgaben
   { key: 'platzmiete', type: 'expense', name: 'Platzmiete' },
@@ -35,10 +37,49 @@ export function defaultCategoryRecords() {
     type: c.type,
     name: c.name,
     euer: '',              // Posten der Anlage EÜR; leer = Standard (siehe euerPostenFor)
-    mileage: !!c.mileage,  // Fahrtkosten: Betrag = km × Pauschale (Schritt 3)
+    mileage: !!c.mileage,  // Fahrtkosten: Betrag = km × Pauschale
+    businessPercent: 100,  // betrieblicher Anteil in % (z. B. Handy 50 %)
     order: i,
     updatedAt: EPOCH,
   }));
+}
+
+// ---------- Preisliste ----------
+//
+// unit: 'fixed' = fester Preis, 'quarter' = Preis je angefangene 15 Minuten,
+//       'free' = freier Betrag (priceCents = Mindestbetrag)
+// kind: 'service' = Leistung, 'voucher' = Gutschein, 'card' = 10er-Karte
+export const DEFAULT_PRODUCTS = [
+  { key: 'erstberatung', name: 'Erstberatung', priceCents: 8000, unit: 'fixed', category: 'beratung' },
+  { key: 'einzelstunde', name: 'Einzelstunde', priceCents: 8000, unit: 'fixed', category: 'einzeltraining' },
+  { key: 'telefonberatung', name: 'Telefonberatung', priceCents: 2000, unit: 'quarter', category: 'beratung' },
+  { key: 'gruppenstunde', name: 'Gruppenstunde', priceCents: 2000, unit: 'fixed', category: 'gruppenkurse' },
+  { key: 'schnupperstunde', name: 'Schnupperstunde', priceCents: 2000, unit: 'fixed', category: 'gruppenkurse' },
+  { key: 'onlineberatung', name: 'Onlineberatung', priceCents: 8000, unit: 'fixed', category: 'beratung' },
+  { key: 'gutschein', name: 'Gutschein', priceCents: 1000, unit: 'free', kind: 'voucher', category: 'gutscheine' },
+];
+
+export function defaultProductRecords() {
+  return DEFAULT_PRODUCTS.map((p, i) => ({
+    id: `prod-${p.key}`,
+    key: p.key,
+    type: 'income',
+    kind: p.kind || 'service',
+    name: p.name,
+    priceCents: p.priceCents,
+    unit: p.unit,
+    categoryId: `cat-${p.category}`,
+    order: i,
+    createdAt: EPOCH,
+    updatedAt: EPOCH,
+  }));
+}
+
+/** "80,00 €", "20,00 € / 15 Min", "ab 10,00 €" – für Knöpfe und Listen */
+export function productPriceLabel(p, formatMoney) {
+  if (p.unit === 'quarter') return `${formatMoney(p.priceCents)} / 15 Min`;
+  if (p.unit === 'free') return p.priceCents ? `ab ${formatMoney(p.priceCents)}` : 'freier Betrag';
+  return formatMoney(p.priceCents);
 }
 
 // Alle Geldbeträge in Cent (ganze Zahlen).

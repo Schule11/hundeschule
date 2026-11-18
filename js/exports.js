@@ -32,7 +32,8 @@ function csvFile(rows, name) {
 export function bookingsCsv(year) {
   const r = yearReport(year);
   const rows = [[
-    'Datum', 'Art', 'Kategorie', 'EÜR-Posten', 'Kund:in', 'Beschreibung', 'Zahlungsart', 'Einnahme (EUR)', 'Ausgabe (EUR)', 'Kilometer', 'Beleg',
+    'Datum', 'Art', 'Kategorie', 'EÜR-Posten', 'Kund:in', 'Beschreibung', 'Zahlungsart', 'Einnahme (EUR)', 'Ausgabe (EUR)',
+    'Rechnungsbetrag (EUR)', 'Betrieblicher Anteil (%)', 'Kilometer', 'Ziel', 'Zweck', 'Beleg',
   ].map(textCell)];
   for (const b of r.bookings) {
     rows.push([
@@ -45,12 +46,16 @@ export function bookingsCsv(year) {
       textCell(paymentLabel(b.payment)),
       b.type === 'income' ? moneyCell(b.amountCents) : '',
       b.type === 'expense' ? moneyCell(b.amountCents) : '',
+      b.businessPercent && b.businessPercent < 100 ? moneyCell(b.fullAmountCents) : '',
+      b.businessPercent && b.businessPercent < 100 ? String(b.businessPercent) : '',
       b.km ? formatKm(b.km) : '',
+      textCell(b.tripTo || ''),
+      textCell(b.tripPurpose || ''),
       textCell(b.receiptId ? 'ja' : ''),
     ]);
   }
   rows.push([]);
-  rows.push(['', '', '', '', '', textCell('Summe'), '', moneyCell(r.totals.income), moneyCell(r.totals.expense), '', '']);
+  rows.push(['', '', '', '', '', textCell('Summe'), '', moneyCell(r.totals.income), moneyCell(r.totals.expense), '', '', '', '', '', '']);
   return csvFile(rows, `hundeschule-buchungen-${year}.csv`);
 }
 
@@ -274,8 +279,9 @@ export function reportPdf(year) {
       pdf.text(formatDate(b.date), X.date, y, { size: 9 });
       pdf.text(categoryName(b.categoryId), X.cat, y, { size: 9, maxWidth: 104 });
       const person = contactById(b.personId)?.name;
-      let desc = [person, b.description].filter(Boolean).join(' – ');
+      let desc = [person, b.tripTo ? `Fahrt: ${b.tripTo}` : null, b.tripPurpose, b.description].filter(Boolean).join(' – ');
       if (b.km) desc = `${desc} (${formatKm(b.km)} km)`.trim();
+      if (b.businessPercent && b.businessPercent < 100) desc = [`${b.businessPercent} % von ${formatMoney(b.fullAmountCents)}`, desc].filter(Boolean).join(' – ');
       pdf.text(desc, X.desc, y, { size: 9, maxWidth: 178 });
       pdf.text(paymentLabel(b.payment), X.pay, y, { size: 9, maxWidth: 58 });
       pdf.text(b.receiptId ? 'ja' : '', X.receipt, y, { size: 9 });

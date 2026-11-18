@@ -47,3 +47,15 @@ export function saveFile(file, onDone = () => {}) {
     onDone(true);
   }
 }
+
+/** Datei ansehen: iPhone über das Teilen-Menü (mit Vorschau), Laptop in neuem Tab */
+export function openFile(file) {
+  if (prefersShare(file)) {
+    navigator.share({ files: [file], title: file.name }).catch(() => {});
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const win = window.open(url, '_blank');
+  if (!win) downloadFile(file);
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}

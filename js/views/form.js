@@ -3,11 +3,13 @@
 import { h, icon, toast, confirmDialog, openImageViewer, isTouchDevice } from '../ui.js';
 import {
   state, categoriesFor, categoryById, saveBooking, deleteBooking, getReceipt, receiptToBlob, saveContact,
+  productsFor, recordById, routesSorted, saveRecord,
 } from '../data.js';
 import { personPicker } from './personPicker.js';
-import { PAYMENT_METHODS } from '../defaults.js';
-import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm } from '../format.js';
-import { resizeImage } from '../image.js';
+import { PAYMENT_METHODS, productPriceLabel } from '../defaults.js';
+import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm, normalizeText } from '../format.js';
+import { prepareReceipt } from '../image.js';
+import { openFile } from '../files.js';
 
 const GWG_HINT_CENTS = 80000; // ab 800 € Hinweis auf mögliche Abschreibung
 
@@ -55,6 +57,9 @@ export function openBookingForm(existing = null) {
     paid: existing ? existing.paid !== false : getLastPaid(),
     // Datum der Stunde zusätzlich zeigen, wenn die Buchung offen war/ist
     showService: !!existing?.serviceDate || existing?.paid === false,
+    productId: existing?.productId || null, // gewählter Eintrag der Preisliste
+    quantity: existing?.quantity || 1,      // z. B. Anzahl 15-Minuten-Einheiten
+    autoDesc: existing?.description || null, // automatisch eingesetzte Beschreibung
   };
   // Kilometerpauschale: bei bestehenden Fahrten die damals gültige, sonst die aktuelle
   const kmRateCents = existing?.kmRateCents ?? state.settings.kmRateCents;
@@ -77,12 +82,55 @@ export function openBookingForm(existing = null) {
     autocomplete: 'off',
     placeholder: '0,00',
     'aria-label': 'Betrag in Euro',
-    value: existing ? (existing.km != null ? formatKm(existing.km) : centsToInput(existing.amountCents)) : '',
+    value: existing
+      ? (existing.km != null ? formatKm(existing.kmEntered ?? existing.km) : centsToInput(existing.fullAmountCents ?? existing.amountCents))
+      : '',
     oninput: () => { st.dirty = true; updateAmountHint(); clearError(); },
   });
   const amountLabel = h('label', { class: 'lbl', for: 'amount' }, 'Betrag');
   const amountSuffix = h('span', { class: 'amount-suffix', 'aria-hidden': 'true' }, '€');
   const kmInfo = h('p', { class: 'hint km-info', hidden: true });
+  const shareInfo = h('p', { class: 'hint km-info', hidden: true });
+
+  // Preisliste: ein Tipp füllt Betrag, Kategorie und Beschreibung
+  const productRow = h('div', { class: 'product-row', role: 'group', 'aria-label': 'Preisliste' });
+  const productWrap = h('div', null, h('div', { class: 'lbl' }, 'Preisliste'), productRow);
+  const qtyLabel = h('span', { class: 'qty-value', 'aria-live': 'polite' });
+  const qtyRow = h('div', { class: 'qty-row', hidden: true },
+    h('span', { class: 'qty-title' }, 'Dauer'),
+    h('button', { type: 'button', class: 'round-btn qty-btn', 'aria-label': '15 Minuten weniger', onclick: () => changeQty(-1) }, '−'),
+    qtyLabel,
+    h('button', { type: 'button', class: 'round-btn qty-btn', 'aria-label': '15 Minuten mehr', onclick: () => changeQty(1) }, '+'));
+
+  // Fahrten: Ziel, Zweck, Hin- und Rückfahrt, häufige Strecken
+  const routeChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Häufige Strecken' });
+  const routeWrap = h('div', null, h('div', { class: 'lbl' }, 'Häufige Strecken'), routeChips);
+  const tripToInput = h('input', {
+    class: 'field', id: 'trip-to', type: 'text', maxlength: 120, autocomplete: 'off', autocapitalize: 'sentences',
+    enterkeyhint: 'next', placeholder: 'z. B. Hundeplatz, Kundin in Cappel', value: existing?.tripTo || '',
+    oninput: () => { st.dirty = true; updateRouteSave(); },
+  });
+  const tripPurposeInput = h('input', {
+    class: 'field', id: 'trip-purpose', type: 'text', maxlength: 120, autocomplete: 'off', autocapitalize: 'sentences',
+    enterkeyhint: 'done', placeholder: 'z. B. Einzeltraining, Fortbildung, Einkauf', value: existing?.tripPurpose || '',
+    oninput: () => { st.dirty = true; },
+  });
+  const roundTripBox = h('input', {
+    type: 'checkbox', id: 'trip-round', checked: !!existing?.roundTrip,
+    onchange: () => { st.dirty = true; updateAmountHint(); updateRouteSave(); },
+  });
+  const saveRouteBtn = h('button', { type: 'button', class: 'btn-text', hidden: true, onclick: () => rememberRoute() }, '+ Als häufige Strecke merken');
+  const tripWrap = h('div', { hidden: true },
+    routeWrap,
+    h('label', { class: 'lbl', for: 'trip-to' }, 'Ziel'),
+    tripToInput,
+    saveRouteBtn,
+    h('label', { class: 'lbl', for: 'trip-purpose' }, 'Zweck der Fahrt'),
+    tripPurposeInput,
+    h('label', { class: 'switch-row', for: 'trip-round' },
+      h('span', null, h('strong', null, 'Hin- und Rückfahrt'),
+        h('span', { class: 'hint', style: 'display:block; margin: 2px 0 0' }, 'Die eingegebenen km werden verdoppelt.')),
+      roundTripBox));
   const amountHint = h('p', { class: 'hint warn', hidden: true },
     'Hinweis: Kostet eine Anschaffung (z. B. ein Gerät, das länger als ein Jahr hält) netto mehr als 800 €, '
     + 'muss sie meist über mehrere Jahre abgeschrieben werden. Im Zweifel bei Steuerberatung nachfragen.');
@@ -158,7 +206,7 @@ export function openBookingForm(existing = null) {
   const payWrap = h('div', null, payLabel, payChips, openHint);
   const personWrap = h('div');
 
-  const fileInput = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: onFileChosen });
+  const fileInput = h('input', { type: 'file', accept: 'image/*,application/pdf,.pdf', hidden: true, onchange: onFileChosen });
   const receiptRow = h('div', { class: 'receipt-row' });
 
   const errorBox = h('p', { class: 'form-error', role: 'alert', hidden: true });
@@ -174,10 +222,15 @@ export function openBookingForm(existing = null) {
       h('div', { class: 'segmented', role: 'group', 'aria-label': 'Art der Buchung' },
         typeButtons.income, typeButtons.expense),
 
+      productWrap,
+
       amountLabel,
       h('div', { class: 'amount-wrap' }, amountInput, amountSuffix),
+      qtyRow,
       kmInfo,
+      shareInfo,
       amountHint,
+      tripWrap,
 
       h('div', { class: 'lbl', id: 'cat-label' }, 'Kategorie'),
       chips,
@@ -210,16 +263,150 @@ export function openBookingForm(existing = null) {
     st.type = type;
     const cat = categoryById(st.categoryId);
     if (cat && cat.type !== type) st.categoryId = null;
+    st.productId = null;
     updateType();
     renderChips();
+    renderProducts();
     updateMode();
+  }
+
+  // ---------- Preisliste ----------
+
+  function currentProduct() {
+    const p = recordById('products', st.productId);
+    return p && (p.type || 'income') === st.type ? p : null;
+  }
+
+  function renderProducts() {
+    const list = productsFor(st.type);
+    productWrap.hidden = list.length === 0;
+    productRow.replaceChildren(...list.map((p) => h('button', {
+      type: 'button',
+      class: 'chip product-chip',
+      'aria-pressed': String(p.id === st.productId),
+      onclick: () => selectProduct(p),
+    },
+    h('span', { class: 'product-name' }, p.name),
+    h('span', { class: 'product-price' }, productPriceLabel(p, formatMoney)))));
+    updateQty();
+  }
+
+  function productText(p) {
+    return p.unit === 'quarter' ? `${p.name} (${st.quantity * 15} Min)` : p.name;
+  }
+
+  /** Betrag und Beschreibung aus der Preisliste übernehmen */
+  function applyProduct() {
+    const p = currentProduct();
+    if (!p) return;
+    if (p.unit === 'fixed') amountInput.value = centsToInput(p.priceCents);
+    if (p.unit === 'quarter') amountInput.value = centsToInput(p.priceCents * st.quantity);
+    // Beschreibung nur setzen, wenn sie leer ist oder von uns stammt
+    if (!descInput.value.trim() || descInput.value === st.autoDesc) {
+      descInput.value = productText(p);
+      st.autoDesc = descInput.value;
+    }
+    updateAmountHint();
+  }
+
+  function selectProduct(p) {
+    const again = st.productId === p.id;
+    st.productId = again ? null : p.id; // nochmal tippen = abwählen
+    st.dirty = true;
+    clearError();
+    if (!again) {
+      if (p.unit === 'quarter' && !st.quantity) st.quantity = 1;
+      const cat = categoryById(p.categoryId);
+      if (cat && cat.type === st.type) {
+        st.categoryId = cat.id;
+        renderChips();
+        updateMode();
+      }
+      if (p.unit === 'free') amountInput.value = '';
+      applyProduct();
+    }
+    renderProducts();
+    if (again) return;
+    if (p.unit === 'free') {
+      // freier Betrag (z. B. Gutschein): gleich eintippen
+      amountInput.placeholder = `ab ${centsToInput(p.priceCents)}`;
+      amountInput.focus();
+    } else if (!isEdit) {
+      if (st.type === 'income' && !picker.hasSelection() && !state.contacts.length) picker.input.focus();
+      else document.activeElement?.blur();
+    }
+  }
+
+  function updateQty() {
+    const p = currentProduct();
+    qtyRow.hidden = !(p && p.unit === 'quarter');
+    qtyLabel.textContent = `${st.quantity * 15} Min`;
+  }
+
+  function changeQty(delta) {
+    st.quantity = Math.max(1, Math.min(32, st.quantity + delta));
+    st.dirty = true;
+    updateQty();
+    applyProduct();
+  }
+
+  // ---------- Fahrten ----------
+
+  function renderRoutes() {
+    const list = routesSorted();
+    routeWrap.hidden = list.length === 0;
+    routeChips.replaceChildren(...list.map((r) => h('button', {
+      type: 'button',
+      class: 'chip',
+      onclick: () => selectRoute(r),
+    }, `${r.name} · ${formatKm(r.km)} km${r.roundTrip ? ' ⇄' : ''}`)));
+  }
+
+  function selectRoute(r) {
+    tripToInput.value = r.name;
+    amountInput.value = formatKm(r.km);
+    roundTripBox.checked = !!r.roundTrip;
+    if (r.purpose && !tripPurposeInput.value.trim()) tripPurposeInput.value = r.purpose;
+    st.dirty = true;
+    clearError();
+    updateAmountHint();
+    updateRouteSave();
+  }
+
+  function updateRouteSave() {
+    const name = tripToInput.value.trim();
+    const km = parseAmount(amountInput.value);
+    const known = state.routes.some((r) => normalizeText(r.name) === normalizeText(name));
+    saveRouteBtn.hidden = !(st.mileage && name && km && !known);
+  }
+
+  async function rememberRoute() {
+    const name = tripToInput.value.trim();
+    const km = parseAmount(amountInput.value);
+    if (!name || !km) { showError('Bitte Ziel und Kilometer eingeben.'); return; }
+    await saveRecord('routes', {
+      name, km: km / 100, roundTrip: roundTripBox.checked, purpose: tripPurposeInput.value.trim(),
+    }, { silent: true });
+    toast('Strecke gemerkt');
+    renderRoutes();
+    updateRouteSave();
+  }
+
+  // ---------- Privatanteil ----------
+
+  /** Betrieblicher Anteil in % (bei bestehenden Buchungen der damalige Wert) */
+  function sharePercent() {
+    const cat = categoryById(st.categoryId);
+    if (!cat || st.type !== 'expense' || cat.mileage) return 100;
+    if (existing && existing.categoryId === cat.id && existing.businessPercent) return existing.businessPercent;
+    return cat.businessPercent || 100;
   }
 
   /** Fahrtkosten-Kategorie gewählt? Dann Kilometer statt Betrag eingeben. */
   function updateMode() {
     st.mileage = !!categoryById(st.categoryId)?.mileage;
-    amountLabel.textContent = st.mileage ? 'Gefahrene Kilometer' : 'Betrag';
     amountSuffix.textContent = st.mileage ? 'km' : '€';
+    tripWrap.hidden = !st.mileage;
     amountInput.placeholder = st.mileage ? '0' : '0,00';
     amountInput.setAttribute('aria-label', st.mileage ? 'Gefahrene Kilometer' : 'Betrag in Euro');
     updateAmountHint();
@@ -276,6 +463,9 @@ export function openBookingForm(existing = null) {
         st.categoryId = c.id;
         st.dirty = true;
         clearError();
+        // Andere Kategorie als der Preislisten-Eintrag? Dann Verknüpfung lösen
+        const prod = currentProduct();
+        if (prod && prod.categoryId !== c.id) { st.productId = null; renderProducts(); }
         for (const el of chips.children) el.setAttribute('aria-pressed', String(el === e.currentTarget));
         const wasMileage = st.mileage;
         updateMode();
@@ -307,14 +497,25 @@ export function openBookingForm(existing = null) {
 
   function updateAmountHint() {
     const value = parseAmount(amountInput.value);
+    const pct = sharePercent();
+    amountLabel.textContent = st.mileage ? 'Gefahrene Kilometer' : pct < 100 ? 'Rechnungsbetrag' : 'Betrag';
     amountHint.hidden = st.mileage || !(st.type === 'expense' && value != null && value > GWG_HINT_CENTS);
     kmInfo.hidden = !st.mileage;
     if (st.mileage) {
       const rate = formatMoney(kmRateCents);
+      const total = value && roundTripBox.checked ? value * 2 : value;
+      const calc = roundTripBox.checked ? `${formatKm(value / 100)} km × 2 = ${formatKm(total / 100)} km` : `${formatKm((value || 0) / 100)} km`;
       kmInfo.textContent = value
-        ? `= ${formatMoney(Math.round((value * kmRateCents) / 100))}  (${formatKm(value / 100)} km × ${rate})`
+        ? `= ${formatMoney(Math.round((total * kmRateCents) / 100))}  (${calc} × ${rate})`
         : `Der Betrag wird mit ${rate} pro km berechnet (änderbar in den Einstellungen).`;
     }
+    shareInfo.hidden = st.mileage || pct >= 100;
+    if (pct < 100) {
+      shareInfo.textContent = value
+        ? `Davon ${pct} % betrieblich: ${formatMoney(Math.round((value * pct) / 100))} – nur das zählt für die EÜR.`
+        : `Es zählt nur der betriebliche Anteil von ${pct} %.`;
+    }
+    updateRouteSave();
   }
 
   function showError(msg) {
@@ -333,14 +534,21 @@ export function openBookingForm(existing = null) {
     return url;
   }
 
-  function thumb(url) {
+  function thumb(rec) {
+    const blob = receiptToBlob(rec);
+    if ((rec.type || '').includes('pdf')) {
+      const file = new File([blob], rec.name || 'Beleg.pdf', { type: 'application/pdf' });
+      return h('button', { type: 'button', class: 'receipt-thumb receipt-pdf', 'aria-label': 'PDF-Beleg öffnen', onclick: () => openFile(file) },
+        icon('receipt', 26), h('span', null, 'PDF'));
+    }
+    const url = urlFor(blob);
     return h('button', { type: 'button', class: 'receipt-thumb', 'aria-label': 'Beleg ansehen', onclick: () => openImageViewer(url) },
       h('img', { src: url, alt: 'Beleg' }));
   }
 
   async function renderReceipt() {
     if (st.receiptBusy) {
-      receiptRow.replaceChildren(h('span', { class: 'muted' }, 'Foto wird verkleinert …'));
+      receiptRow.replaceChildren(h('span', { class: 'muted' }, 'Beleg wird verarbeitet …'));
       return;
     }
     const addBtn = (label) => h('button', { type: 'button', class: 'btn', onclick: () => fileInput.click() }, icon('camera'), label);
@@ -351,7 +559,7 @@ export function openBookingForm(existing = null) {
     }, 'Entfernen');
 
     if (st.newReceipt) {
-      receiptRow.replaceChildren(thumb(urlFor(receiptToBlob(st.newReceipt))), addBtn('Ersetzen'), removeBtn);
+      receiptRow.replaceChildren(thumb(st.newReceipt), addBtn('Ersetzen'), removeBtn);
       return;
     }
     if (st.receiptId && !st.removeReceipt) {
@@ -359,13 +567,13 @@ export function openBookingForm(existing = null) {
       const rec = await getReceipt(st.receiptId).catch(() => null);
       if (st.newReceipt || st.removeReceipt) return; // inzwischen geändert
       if (rec) {
-        receiptRow.replaceChildren(thumb(urlFor(receiptToBlob(rec))), addBtn('Ersetzen'), removeBtn);
+        receiptRow.replaceChildren(thumb(rec), addBtn('Ersetzen'), removeBtn);
       } else {
-        receiptRow.replaceChildren(h('span', { class: 'muted' }, 'Foto nicht gefunden.'), addBtn('Foto hinzufügen'));
+        receiptRow.replaceChildren(h('span', { class: 'muted' }, 'Beleg nicht gefunden.'), addBtn('Beleg hinzufügen'));
       }
       return;
     }
-    receiptRow.replaceChildren(addBtn('Foto hinzufügen'));
+    receiptRow.replaceChildren(addBtn('Beleg hinzufügen'));
   }
 
   async function onFileChosen() {
@@ -375,11 +583,11 @@ export function openBookingForm(existing = null) {
     st.receiptBusy = true;
     renderReceipt();
     try {
-      st.newReceipt = await resizeImage(file);
+      st.newReceipt = await prepareReceipt(file); // Foto verkleinern oder PDF übernehmen
       st.removeReceipt = false;
       st.dirty = true;
     } catch (err) {
-      showError(err.message || 'Das Foto konnte nicht verarbeitet werden.');
+      showError(err.message || 'Der Beleg konnte nicht verarbeitet werden.');
     } finally {
       st.receiptBusy = false;
       renderReceipt();
@@ -394,15 +602,31 @@ export function openBookingForm(existing = null) {
     const value = parseAmount(amountInput.value); // Cent bzw. Hundertstel-Kilometer
     let cents = value;
     let km = null;
+    let kmEntered = null;
+    let fullAmountCents = null;
+    let businessPercent = null;
+    const product = currentProduct();
     if (cat?.mileage) {
       if (value == null || value <= 0) {
         showError(amountInput.value.trim() ? 'Bitte gültige Kilometer eingeben, z. B. 42 oder 12,5.' : 'Bitte die gefahrenen Kilometer eingeben.');
         return;
       }
       if (value > 10000000) { showError('So viele Kilometer? Bitte prüfen.'); return; }
-      km = value / 100;
-      cents = Math.round((value * kmRateCents) / 100);
+      const total = roundTripBox.checked ? value * 2 : value;
+      kmEntered = value / 100;
+      km = total / 100;
+      cents = Math.round((total * kmRateCents) / 100);
     } else {
+      if (product?.unit === 'free' && value != null && value < product.priceCents) {
+        showError(`${product.name}: mindestens ${formatMoney(product.priceCents)}.`);
+        return;
+      }
+      const pct = sharePercent();
+      if (pct < 100 && value > 0) {
+        fullAmountCents = value;
+        businessPercent = pct;
+        cents = Math.round((value * pct) / 100);
+      }
       if (value == null || value <= 0) {
         showError(amountInput.value.trim() ? 'Bitte einen gültigen Betrag eingeben, z. B. 45,50.' : 'Bitte einen Betrag eingeben.');
         return;
@@ -425,7 +649,7 @@ export function openBookingForm(existing = null) {
       if (newName) personId = (await saveContact({ name: newName }, { silent: true })).id;
 
       const receiptChange = st.newReceipt
-        ? { add: { data: st.newReceipt.data, type: st.newReceipt.type, width: st.newReceipt.width, height: st.newReceipt.height } }
+        ? { add: { data: st.newReceipt.data, type: st.newReceipt.type, width: st.newReceipt.width, height: st.newReceipt.height, name: st.newReceipt.name || null } }
         : (st.removeReceipt ? { remove: true } : null);
       await saveBooking({
         id: existing?.id,
@@ -440,6 +664,14 @@ export function openBookingForm(existing = null) {
         payment: open ? null : st.payment,
         km,
         kmRateCents: km != null ? kmRateCents : null,
+        kmEntered,
+        roundTrip: km != null ? roundTripBox.checked : null,
+        tripTo: km != null ? tripToInput.value.trim() : null,
+        tripPurpose: km != null ? tripPurposeInput.value.trim() : null,
+        fullAmountCents,
+        businessPercent,
+        productId: product ? product.id : null,
+        quantity: product && product.unit === 'quarter' ? st.quantity : null,
         personId,
       }, receiptChange);
       setLastType(st.type);
@@ -504,6 +736,8 @@ export function openBookingForm(existing = null) {
 
   updateType();
   renderChips();
+  renderProducts();
+  renderRoutes();
   updateMode();
   renderReceipt();
 
