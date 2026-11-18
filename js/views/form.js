@@ -14,6 +14,7 @@ import {
   createVoucherForBooking, createCardForBooking, redeemVoucher, useCard,
 } from '../vouchers.js';
 import { offerVoucherPdf, cancelVoucher } from './vouchers.js';
+import { detachBooking } from '../courses.js';
 import { PAYMENT_METHODS, productPriceLabel } from '../defaults.js';
 import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm, normalizeText } from '../format.js';
 import { prepareReceipt } from '../image.js';
@@ -331,6 +332,12 @@ export function openBookingForm(existing = null, opts = {}) {
   /** Rechnung/Quittung zur gespeicherten Einnahme */
   function invoiceSection() {
     if (!isEdit || existing.type !== 'income') return null;
+    const course = recordById('courses', existing.courseId);
+    const courseNote = course ? h('p', { class: 'hint' }, `Gehört zum Kurs „${course.name}“ (Übersicht → Kurse).`) : null;
+    return [courseNote, invoiceButtons()];
+  }
+
+  function invoiceButtons() {
     const inv = recordById('invoices', existing.invoiceId);
     if (inv && !inv.cancelled) {
       const status = invoiceStatus(inv);
@@ -958,6 +965,7 @@ export function openBookingForm(existing = null, opts = {}) {
       if (inv && !inv.cancelled) await cancelInvoice(inv);
       if (soldV) await cancelVoucher(soldV);
       if (soldC) await saveRecord('cards', { id: soldC.id, cancelled: true });
+      await detachBooking(existing);
       await deleteBooking(existing.id);
       close();
       toast('Buchung gelöscht');

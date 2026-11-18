@@ -4,9 +4,11 @@ import { h, mount, toast, openSheet, confirmDialog } from '../ui.js';
 import {
   onChange, contactsSorted, contactLabel, contactStats, saveContact, deleteContact, findContactByName,
 } from '../data.js';
-import { formatSigned, formatMoney, normalizeText } from '../format.js';
+import { formatSigned, formatMoney, formatDate, normalizeText } from '../format.js';
 import { showBookings } from './bookings.js';
 import { cardRemaining, cardState, voucherRemaining, voucherState } from '../vouchers.js';
+import { coursesOf, participantStatus } from '../courses.js';
+import { openCourseDetail } from './courses.js';
 import { openCardDetail } from './cards.js';
 import { openVoucherDetail } from './vouchers.js';
 import { state } from '../data.js';
@@ -157,10 +159,18 @@ export function openContactEditor(contact = null, closeList = null) {
 function extrasFor(contact) {
   const cards = state.cards.filter((c) => c.personId === contact.id && cardState(c) === 'active');
   const vouchers = state.vouchers.filter((v) => v.buyerPersonId === contact.id && voucherState(v) === 'active');
-  if (!cards.length && !vouchers.length) return null;
+  const courses = coursesOf(contact.id);
+  if (!cards.length && !vouchers.length && !courses.length) return null;
   return [
-    h('div', { class: 'lbl' }, '10er-Karten und Gutscheine'),
+    h('div', { class: 'lbl' }, 'Kurse, 10er-Karten und Gutscheine'),
     h('div', { class: 'rows' },
+      courses.map((c) => {
+        const p = c.participants.find((x) => x.personId === contact.id);
+        const st = participantStatus(p);
+        return h('button', { type: 'button', class: 'row', onclick: () => openCourseDetail(c) },
+          h('div', { class: 'row-main' }, h('div', { class: 'row-title' }, c.name), h('div', { class: 'row-sub' }, `ab ${formatDate(c.startDate)} · ${st === 'paid' ? 'bezahlt' : st === 'open' ? 'offen' : '–'}`)),
+          h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'));
+      }),
       cards.map((c) => h('button', { type: 'button', class: 'row', onclick: () => openCardDetail(c) },
         h('div', { class: 'row-main' }, h('div', { class: 'row-title' }, c.title || '10er-Karte'), h('div', { class: 'row-sub' }, `noch ${cardRemaining(c)} von ${c.size}`)),
         h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'))),

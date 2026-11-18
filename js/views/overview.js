@@ -10,6 +10,8 @@ import { openContactList } from './contacts.js';
 import { openInvoiceList } from './invoices.js';
 import { openVoucherList } from './vouchers.js';
 import { openCardList } from './cards.js';
+import { openCourseList } from './courses.js';
+import { courseStats } from '../courses.js';
 import { openBookingForm } from './form.js';
 import { activeVouchers, voucherRemaining, cardState } from '../vouchers.js';
 import { invoiceStatus } from '../invoices.js';
@@ -128,7 +130,15 @@ function tiles() {
     tile('tile-vouchers', 'Gutscheine', vouchers.length ? `${vouchers.length} gültig · ${formatMoney(voucherSum)}` : 'keine offen', 'gift',
       () => openVoucherList(null, { onSell: () => openBookingForm(null, { productId: 'prod-gutschein' }) })),
     tile('tile-cards', '10er-Karten', cards ? `${cards} aktiv` : 'keine aktiv', 'ticket',
-      () => openCardList(null, { onSell: () => openBookingForm(null, { productId: 'prod-10er-karte' }) })));
+      () => openCardList(null, { onSell: () => openBookingForm(null, { productId: 'prod-10er-karte' }) })),
+    tile('tile-courses', 'Kurse', coursesValue(), 'calendar', () => openCourseList()));
+}
+
+function coursesValue() {
+  const current = state.courses.filter((c) => !c.finished);
+  if (!current.length) return 'keine aktuellen';
+  const open = current.reduce((s, c) => s + courseStats(c).open, 0);
+  return `${current.length} aktuell${open ? ` · ${open} offen` : ''}`;
 }
 
 /** Dezente Zeile: Ausgaben dieses Jahres, zu denen noch ein Beleg fehlt */

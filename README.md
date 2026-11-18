@@ -31,7 +31,7 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 |---|---|
 | **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Preisliste, Betrag, Kategorie und Kund:in (je als aufklappbare Liste), Beschreibung, Zahlung, Datum, Beleg. Oben rechts ✓ speichert, ✕ bricht ab. |
 | **Menüleiste unten** | Übersicht, Buchungen, Auswertung |
-| **Übersicht** | Einnahmen, Ausgaben und Gewinn (Monat und Jahr), Kacheln zu Kund:innen, Rechnungen, Gutscheinen und 10er-Karten, offene Zahlungen zum Abhaken, Hinweise |
+| **Übersicht** | Einnahmen, Ausgaben und Gewinn (Monat und Jahr), Kacheln zu Kund:innen, Rechnungen, Gutscheinen, 10er-Karten und Kursen, offene Zahlungen zum Abhaken, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
 | **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
@@ -96,6 +96,12 @@ Reicht der Gutschein nicht, wird nur der Restbetrag als Einnahme gebucht. Teilei
 Bei der Gruppenstunde wählst du unter Zahlung **„10er-Karte (noch …)“** – eine Stunde wird abgebucht, ohne neue
 Einnahme. Abbuchungen siehst du (und machst sie rückgängig) in der Kachel 10er-Karten oder bei der Kund:in.
 Preis und Anzahl der Stunden änderst du in der Preisliste.
+
+**Gruppenkurse:** Übersicht → Kachel **Kurse** → „+ Neuer Kurs“ (Name, Start, Termine, Zeit/Ort, Preis pro Person,
+Plätze). Mit „+ Hinzufügen“ meldest du Kund:innen an – für jede Person entsteht eine Einnahme über den Kurspreis,
+standardmäßig **offen** (mit Erinnerung nach 14 Tagen ab Kursbeginn). Abhaken per Kreis; ein Tipp auf den Namen bietet
+Rechnung/Quittung, Buchung öffnen oder Entfernen. Wiederkehrende Kurse kopierst du mit „Als neuen Kurs kopieren“;
+fertige Kurse schließt du ab.
 
 **Datum = Tag der Zahlung.** Die EÜR zählt, wann das Geld geflossen ist, nicht wann die Rechnung kam.
 
