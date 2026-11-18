@@ -92,6 +92,21 @@ export const DEFAULT_SETTINGS = {
   manualRevenue: {},               // Umsatz von Hand je Jahr, z. B. { "2025": 1200000 }
   backupReminderDays: 30,          // 0 = keine Erinnerung
   paymentReminderDays: 14,         // offene Zahlung gilt danach als überfällig
+  // Geschäftsdaten für Rechnungen und Quittungen
+  ownerName: '',                   // Inhaber:in (Vor- und Nachname)
+  street: '',
+  zip: '',
+  city: '',
+  phone: '',
+  email: '',
+  website: '',
+  taxNumber: '',                   // Steuernummer vom Finanzamt
+  bankHolder: '',
+  iban: '',
+  bic: '',
+  bankName: '',
+  paymentTermDays: 14,             // Zahlungsziel für Rechnungen
+  invoiceNote: '',                 // Schlusstext auf Rechnungen (optional)
   updatedAt: EPOCH,
 };
 

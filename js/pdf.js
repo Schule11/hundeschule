@@ -95,6 +95,21 @@ export class Pdf {
     return s.trimEnd() + '…';
   }
 
+  /** Text auf mehrere Zeilen umbrechen (an Leerzeichen) */
+  wrap(str, maxWidth, size = 10, bold = false) {
+    const lines = [];
+    for (const para of String(str ?? '').split(/\n/)) {
+      let line = '';
+      for (const word of para.split(/\s+/).filter(Boolean)) {
+        const test = line ? `${line} ${word}` : word;
+        if (this.textWidth(test, size, bold) <= maxWidth || !line) line = test;
+        else { lines.push(line); line = word; }
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
+
   text(str, x, y, { size = 10, bold = false, color = [0, 0, 0], align = 'left', maxWidth = null } = {}) {
     let s = String(str ?? '');
     if (maxWidth) s = this.fit(s, maxWidth, size, bold);

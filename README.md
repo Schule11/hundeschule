@@ -31,7 +31,7 @@ Am Jahresende liefert sie die Summen für die **Anlage EÜR**, als CSV und als P
 |---|---|
 | **+ (runder Knopf neben der Menüleiste)** | Neue Buchung (startet als Einnahme): Preisliste, Betrag, Kategorie und Kund:in (je als aufklappbare Liste), Beschreibung, Zahlung, Datum, Beleg. Oben rechts ✓ speichert, ✕ bricht ab. |
 | **Menüleiste unten** | Übersicht, Buchungen, Auswertung |
-| **Übersicht** | Offene Zahlungen zum Abhaken, Einnahmen, Ausgaben und Gewinn des Monats und des Jahres, Hinweise |
+| **Übersicht** | Einnahmen, Ausgaben und Gewinn (Monat und Jahr), Kacheln zu Kund:innen und Rechnungen, offene Zahlungen zum Abhaken, Hinweise |
 | **Buchungen** | Alle Buchungen nach Monaten; Suche und Filter (auch „Offen“); antippen zum Bearbeiten oder Löschen |
 | **Auswertung** | Summen für die Anlage EÜR, pro Kategorie und pro Monat; Export als PDF und CSV |
 | **Einstellungen** (Zahnrad oben rechts) | Kurze Liste wie in den iPhone-Einstellungen: Name, Kategorien, Kund:innen, offene Zahlungen, Fahrtkosten, Kleinunternehmergrenze, Backup, hell/dunkel |
@@ -73,6 +73,18 @@ du deshalb beim Öffnen der App.
 > Kleinunternehmergrenze – erst, wenn das Geld da ist (Zuflussprinzip). Beim Abhaken wird **heute** als
 > Zahlungsdatum eingetragen; kam das Geld früher, änderst du das Datum in der Buchung. Eine Stunde im Dezember,
 > die im Januar bezahlt wird, zählt im neuen Jahr.
+
+**Rechnungen und Quittungen:** Trage einmal deine **Geschäftsdaten** ein (*Einstellungen → Geschäftsdaten*:
+Name, Anschrift, Steuernummer, Bankverbindung, Zahlungsziel). Dann:
+- **Aus einer Einnahme:** Buchung öffnen → **Rechnung erstellen** (Zahlung kommt noch) oder **Quittung erstellen**
+  (Betrag schon erhalten, z. B. bar).
+- **Neu:** Übersicht → Kachel **Rechnungen** → „+ Rechnung“ / „+ Quittung“. Dabei wird die Einnahme automatisch angelegt.
+- Das PDF enthält Logo, fortlaufende Nummer (z. B. 2026-001), Leistungsdatum, deine Bankverbindung und den Hinweis
+  „Gemäß § 19 UStG wird keine Umsatzsteuer berechnet“. Teilen per WhatsApp, Mail oder „In Dateien sichern“.
+- Eine Rechnung ist eine offene Zahlung, bis du sie abhakst (oder in der Rechnung „Als bezahlt markieren“).
+- Erstellte Rechnungen werden nicht mehr geändert. Bei einem Fehler: **stornieren** und neu erstellen – die Nummer
+  bleibt vergeben, damit die Nummern lückenlos sind.
+- Die Anschrift der Kund:in wird gespeichert; ab 250 € gehört sie auf die Rechnung.
 
 **Datum = Tag der Zahlung.** Die EÜR zählt, wann das Geld geflossen ist, nicht wann die Rechnung kam.
 

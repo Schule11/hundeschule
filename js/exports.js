@@ -1,10 +1,13 @@
 // Export der Jahresauswertung als CSV (für Excel/Numbers) und als PDF.
 
-import { state, categoryName, categoryById, contactById, contactLabel } from './data.js';
+import { state, categoryName, categoryById, contactById, contactLabel, recordById } from './data.js';
 import { paymentLabel, euerPostenFor } from './defaults.js';
 import { yearReport } from './yearReport.js';
 import { formatMoney, formatSigned, formatProfit, formatDate, formatKm, todayISO, MONTHS } from './format.js';
 import { Pdf } from './pdf.js';
+import { getLogo } from './logo.js';
+
+export { preloadLogo } from './logo.js';
 
 // ---------- CSV ----------
 // Semikolon als Trenner, Komma als Dezimalzeichen, UTF-8 mit BOM:
@@ -28,12 +31,17 @@ function csvFile(rows, name) {
   return new File([text], name, { type: 'text/csv' });
 }
 
+function invoiceNumber(b) {
+  const inv = recordById('invoices', b.invoiceId);
+  return inv && !inv.cancelled ? inv.number : '';
+}
+
 /** Alle Buchungen eines Jahres, eine Zeile pro Buchung */
 export function bookingsCsv(year) {
   const r = yearReport(year);
   const rows = [[
     'Datum', 'Art', 'Kategorie', 'EÜR-Posten', 'Kund:in', 'Beschreibung', 'Zahlungsart', 'Einnahme (EUR)', 'Ausgabe (EUR)',
-    'Rechnungsbetrag (EUR)', 'Betrieblicher Anteil (%)', 'Kilometer', 'Ziel', 'Zweck', 'Beleg',
+    'Rechnungsbetrag (EUR)', 'Betrieblicher Anteil (%)', 'Kilometer', 'Ziel', 'Zweck', 'Beleg', 'Rechnung/Quittung',
   ].map(textCell)];
   for (const b of r.bookings) {
     rows.push([
@@ -52,10 +60,11 @@ export function bookingsCsv(year) {
       textCell(b.tripTo || ''),
       textCell(b.tripPurpose || ''),
       textCell(b.receiptId ? 'ja' : ''),
+      textCell(invoiceNumber(b)),
     ]);
   }
   rows.push([]);
-  rows.push(['', '', '', '', '', textCell('Summe'), '', moneyCell(r.totals.income), moneyCell(r.totals.expense), '', '', '', '', '', '']);
+  rows.push(['', '', '', '', '', textCell('Summe'), '', moneyCell(r.totals.income), moneyCell(r.totals.expense), '', '', '', '', '', '', '']);
   return csvFile(rows, `hundeschule-buchungen-${year}.csv`);
 }
 
@@ -88,35 +97,6 @@ export function summaryCsv(year) {
     for (const p of r.persons) rows.push([textCell(p.label), moneyCell(p.cents), String(p.count)]);
   }
   return csvFile(rows, `hundeschule-summen-${year}.csv`);
-}
-
-// ---------- Logo fürs PDF ----------
-
-let logo = null;
-
-/** Lädt das Logo vorab (als JPEG), damit das PDF später ohne Wartezeit entsteht. */
-export function preloadLogo() {
-  if (logo) return;
-  logo = { loading: true };
-  const img = new Image();
-  img.onload = () => {
-    const w = img.naturalWidth * 2;
-    const h = img.naturalHeight * 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
-    canvas.toBlob(async (blob) => {
-      if (!blob) { logo = null; return; }
-      const bytes = new Uint8Array(await new Response(blob).arrayBuffer());
-      logo = { bytes, width: w, height: h };
-    }, 'image/jpeg', 0.92);
-  };
-  img.onerror = () => { logo = null; };
-  img.src = 'assets/logo.png';
 }
 
 // ---------- PDF ----------
@@ -161,6 +141,7 @@ export function reportPdf(year) {
   };
 
   // --- Kopf ---
+  const logo = getLogo();
   if (logo?.bytes) {
     pdf.setImage(logo.bytes, logo.width, logo.height);
     const lw = 84;

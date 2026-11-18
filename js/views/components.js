@@ -1,7 +1,7 @@
 // Wiederverwendbare Bausteine für mehrere Bildschirme.
 
 import { h, icon, toast } from '../ui.js';
-import { categoryName, contactById, contactLabel, isOpen, daysOpen, isOverdue, markPaid, saveBooking } from '../data.js';
+import { categoryName, contactById, contactLabel, isOpen, daysOpen, isOverdue, markPaid, saveBooking, recordById } from '../data.js';
 import { paymentLabel } from '../defaults.js';
 import { formatDate, formatSigned, formatMoney, formatProfit, formatKm } from '../format.js';
 import { openBookingForm } from './form.js';
@@ -33,6 +33,8 @@ function openRow(b, title, cat, person) {
   const sub = [formatDate(b.serviceDate || b.date)];
   if (title !== cat) sub.push(cat);
   if (person && title !== person) sub.push(person);
+  const inv = recordById('invoices', b.invoiceId);
+  if (inv && !inv.cancelled) sub.push(`Rechnung ${inv.number}`);
   const age = days === 0 ? 'seit heute offen' : days === 1 ? 'seit 1 Tag offen' : `seit ${days} Tagen offen`;
   return h('div', { class: `row open-row${overdue ? ' overdue' : ''}` },
     h('button', {
@@ -66,6 +68,8 @@ export function bookingRow(b) {
   if (b.km) sub.push(`${formatKm(b.km)} km`);
   if (b.businessPercent && b.businessPercent < 100) sub.push(`${b.businessPercent} % von ${formatMoney(b.fullAmountCents)}`);
   if (b.payment) sub.push(paymentLabel(b.payment));
+  const inv = recordById('invoices', b.invoiceId);
+  if (inv && !inv.cancelled) sub.push(`${inv.kind === 'receipt' ? 'Quittung' : 'Rechnung'} ${inv.number}`);
   const kind = b.type === 'income' ? 'Einnahme' : 'Ausgabe';
 
   return h('button', {

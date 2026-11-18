@@ -344,7 +344,7 @@ export async function saveRecord(name, input, { silent = false } = {}) {
   const record = {
     ...existing,
     ...input,
-    id: existing?.id || uid(PREFIX[name]),
+    id: existing?.id || input.id || uid(PREFIX[name]),
     order: existing?.order ?? input.order ?? Math.max(-1, ...sameGroup.map((x) => x.order ?? -1)) + 1,
     createdAt: existing?.createdAt || now,
     updatedAt: now,

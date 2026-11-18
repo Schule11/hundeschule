@@ -7,14 +7,14 @@ import { state, contactById, contactLabel, contactsSorted, recentContacts, findC
 import { normalizeText } from '../format.js';
 import { disclosurePicker, pickerOption, pickerGroup } from './picker.js';
 
-export function personPicker({ initialId = null, onChange = () => {} } = {}) {
+export function personPicker({ initialId = null, onChange = () => {}, idPrefix = 'person' } = {}) {
   let selectedId = contactById(initialId) ? initialId : null;
   let pendingNew = null; // neuer Name, wird beim Speichern angelegt
 
-  const picker = disclosurePicker({ id: 'person-picker', placeholder: 'Kund:in wählen', label: 'Kund:in' });
+  const picker = disclosurePicker({ id: `${idPrefix}-picker`, placeholder: 'Kund:in wählen', label: 'Kund:in' });
   const input = h('input', {
     class: 'field field-search picker-search',
-    id: 'person',
+    id: idPrefix,
     type: 'search',
     maxlength: 80,
     autocomplete: 'off',

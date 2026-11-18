@@ -95,3 +95,22 @@ export function formatSize(bytes) {
 export function normalizeText(s) {
   return String(s || '').toLocaleLowerCase('de-DE').trim();
 }
+
+/** IBAN formatieren: "DE89370400440532013000" → "DE89 3704 0044 0532 0130 00" */
+export function formatIban(iban) {
+  return String(iban || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
+}
+
+/** IBAN prüfen (Länge und Prüfsumme nach ISO 13616) */
+export function isValidIban(iban) {
+  const s = String(iban || '').replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(s)) return false;
+  if (s.startsWith('DE') && s.length !== 22) return false;
+  const rearranged = s.slice(4) + s.slice(0, 4);
+  let remainder = 0;
+  for (const ch of rearranged) {
+    const v = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const d of v) remainder = (remainder * 10 + Number(d)) % 97;
+  }
+  return remainder === 1;
+}

@@ -5,7 +5,7 @@
 
 import { h, mount, icon, toast, choiceDialog, confirmDialog, alertDialog, getTheme, setTheme, openSheet } from '../ui.js';
 import { state, storageIsPersistent, updateSettings, categoriesFor } from '../data.js';
-import { formatDateTime, formatSize, formatMoney, centsToInput, parseAmount } from '../format.js';
+import { formatDateTime, formatSize, formatMoney, centsToInput, parseAmount, formatIban, isValidIban } from '../format.js';
 import { APP_VERSION, APP_STAGE } from '../config.js';
 import { createBackupFile, markBackupDone, readBackupFile, applyBackup } from '../backup.js';
 import { saveFile, prefersShare } from '../files.js';
@@ -78,17 +78,59 @@ function navRow(label, value, onClick, { id = null } = {}) {
 
 // ---------- Unterseiten ----------
 
-function openNamePage(onClose) {
-  const { body } = openSheet({ title: 'Hundeschule', onClose });
-  mount(body, h('section', { class: 'card' },
-    settingField({
-      id: 'set-name', label: 'Name (steht auf dem PDF)', value: state.settings.businessName || '',
-      onSave: async (v) => {
-        if (!v) return invalid('Bitte einen Namen eingeben.');
-        await updateSettings({ businessName: v }, { silent: true });
-        return v;
-      },
-    })));
+/** Geschäftsdaten: Name, Anschrift, Kontakt, Steuernummer, Bank – stehen auf Rechnungen */
+export function openBusinessPage(onClose) {
+  const s = state.settings;
+  const { body } = openSheet({ title: 'Geschäftsdaten', onClose });
+  const text = (key, id, label, opts = {}) => settingField({
+    id, label, value: s[key] || '', inputmode: opts.inputmode, placeholder: opts.placeholder || '', hint: opts.hint || null,
+    onSave: async (v) => {
+      if (opts.required && !v) return invalid(opts.required);
+      if (opts.check) { const msg = opts.check(v); if (msg) return invalid(msg); }
+      const value = opts.format ? opts.format(v) : v;
+      await updateSettings({ [key]: value }, { silent: true });
+      return value;
+    },
+  });
+  mount(body,
+    h('p', { class: 'hint', style: 'margin: 0 2px 12px' },
+      'Diese Angaben stehen auf deinen Rechnungen und Quittungen. Für eine korrekte Rechnung brauchst du mindestens Namen und Anschrift; '
+      + 'die Steuernummer solltest du ebenfalls angeben.'),
+    h('section', { class: 'card' },
+      text('businessName', 'set-name', 'Name der Hundeschule (steht auf dem PDF)', { required: 'Bitte einen Namen eingeben.' }),
+      text('ownerName', 'set-owner', 'Inhaber:in (Vor- und Nachname)', { placeholder: 'z. B. Maria Muster' })),
+    h('h2', { class: 'section-title' }, 'Anschrift'),
+    h('section', { class: 'card' },
+      text('street', 'set-street', 'Straße und Hausnummer', { placeholder: 'z. B. Lahnstraße 1' }),
+      text('zip', 'set-zip', 'PLZ', { inputmode: 'numeric', placeholder: '35037', check: (v) => (v && !/^\d{5}$/.test(v) ? 'Bitte eine fünfstellige PLZ eingeben.' : null) }),
+      text('city', 'set-city', 'Ort', { placeholder: 'Marburg' })),
+    h('h2', { class: 'section-title' }, 'Kontakt'),
+    h('section', { class: 'card' },
+      text('phone', 'set-phone', 'Telefon', { inputmode: 'tel' }),
+      text('email', 'set-email', 'E-Mail', { inputmode: 'email', check: (v) => (v && !/^\S+@\S+\.\S+$/.test(v) ? 'Bitte eine gültige E-Mail-Adresse eingeben.' : null) }),
+      text('website', 'set-web', 'Website (optional)', { inputmode: 'url' })),
+    h('h2', { class: 'section-title' }, 'Steuer'),
+    h('section', { class: 'card' },
+      text('taxNumber', 'set-taxnr', 'Steuernummer', { placeholder: 'z. B. 031 234 56789', hint: 'Steht auf dem Schreiben des Finanzamts zur Gewerbeanmeldung.' })),
+    h('h2', { class: 'section-title' }, 'Bankverbindung'),
+    h('section', { class: 'card' },
+      text('bankHolder', 'set-holder', 'Kontoinhaber:in'),
+      text('iban', 'set-iban', 'IBAN', { format: formatIban, check: (v) => (v && !isValidIban(v) ? 'Diese IBAN scheint nicht zu stimmen. Bitte prüfen.' : null) }),
+      text('bic', 'set-bic', 'BIC (optional)'),
+      text('bankName', 'set-bank', 'Bank (optional)')),
+    h('h2', { class: 'section-title' }, 'Rechnungen'),
+    h('section', { class: 'card' },
+      settingField({
+        id: 'set-term', label: 'Zahlungsziel', unit: 'Tage', inputmode: 'numeric', value: String(s.paymentTermDays ?? 14),
+        onSave: async (v) => {
+          const n = Number(v);
+          if (!Number.isInteger(n) || n < 0 || n > 90) return invalid('Bitte eine ganze Zahl zwischen 0 und 90 eingeben.');
+          await updateSettings({ paymentTermDays: n }, { silent: true });
+          return String(n);
+        },
+      }),
+      text('invoiceNote', 'set-note', 'Schlusstext (optional)', { placeholder: 'z. B. Vielen Dank für Ihr Vertrauen!' })),
+  );
 }
 
 function openPaymentsPage(onClose) {
@@ -268,7 +310,7 @@ export function render(root) {
 
     h('h2', { class: 'section-title' }, 'Hundeschule'),
     h('div', { class: 'rows group' },
-      navRow('Name', s.businessName || '–', () => openNamePage(refresh), { id: 'nav-name' })),
+      navRow('Geschäftsdaten', s.businessName || '–', () => openBusinessPage(refresh), { id: 'nav-name' })),
 
     h('h2', { class: 'section-title' }, 'Listen'),
     h('div', { class: 'rows group' },

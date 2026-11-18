@@ -66,6 +66,14 @@ export function openContactEditor(contact = null, closeList = null) {
     class: 'field', id: 'contact-dog', type: 'text', maxlength: 80, autocomplete: 'off', autocapitalize: 'words',
     value: contact?.dog || '', placeholder: 'z. B. Bello',
   });
+  const field = (id, value, placeholder, extra = {}) => h('input', {
+    class: 'field', id, type: 'text', autocomplete: 'off', value: value || '', placeholder, ...extra,
+  });
+  const streetInput = field('contact-street', contact?.street, 'Straße und Hausnummer', { autocapitalize: 'words' });
+  const zipInput = field('contact-zip', contact?.zip, 'PLZ', { inputmode: 'numeric', maxlength: 5 });
+  const cityInput = field('contact-city', contact?.city, 'Ort', { autocapitalize: 'words' });
+  const phoneInput = field('contact-phone', contact?.phone, 'Telefon', { inputmode: 'tel', type: 'tel' });
+  const emailInput = field('contact-email', contact?.email, 'E-Mail', { inputmode: 'email', type: 'email', autocapitalize: 'off' });
   const errorBox = h('p', { class: 'form-error', role: 'alert', hidden: true });
 
   const { body, close } = openSheet({
@@ -81,7 +89,16 @@ export function openContactEditor(contact = null, closeList = null) {
     const same = findContactByName(name);
     if (same && same.id !== contact?.id) return fail(`„${same.name}“ gibt es schon.`);
     try {
-      await saveContact({ id: contact?.id, name, dog: dogInput.value.trim() });
+      await saveContact({
+        id: contact?.id,
+        name,
+        dog: dogInput.value.trim(),
+        street: streetInput.value.trim(),
+        zip: zipInput.value.trim(),
+        city: cityInput.value.trim(),
+        phone: phoneInput.value.trim(),
+        email: emailInput.value.trim(),
+      });
       close();
       toast(isNew ? 'Kund:in angelegt' : 'Gespeichert');
     } catch (err) {
@@ -112,6 +129,10 @@ export function openContactEditor(contact = null, closeList = null) {
     h('label', { class: 'lbl', for: 'contact-dog' }, 'Hund (optional)'),
     dogInput,
     h('p', { class: 'hint' }, 'Der Hundename wird bei der Auswahl mit angezeigt und ist durchsuchbar.'),
+    h('div', { class: 'lbl' }, 'Anschrift (für Rechnungen, optional)'),
+    h('div', { class: 'stack' }, streetInput, h('div', { class: 'zip-city' }, zipInput, cityInput)),
+    h('div', { class: 'lbl' }, 'Kontakt (optional)'),
+    h('div', { class: 'stack' }, phoneInput, emailInput),
     errorBox,
     h('div', { class: 'form-actions' },
       h('button', { type: 'button', class: 'btn primary block', onclick: save }, 'Speichern'),

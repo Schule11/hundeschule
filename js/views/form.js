@@ -7,6 +7,8 @@ import {
 } from '../data.js';
 import { personPicker } from './personPicker.js';
 import { disclosurePicker, pickerOption, pickerGroup } from './picker.js';
+import { openInvoiceEditor, openInvoiceDetail } from './invoices.js';
+import { KIND_LABEL, STATUS_LABEL, invoiceStatus, cancelInvoice } from '../invoices.js';
 import { PAYMENT_METHODS, productPriceLabel } from '../defaults.js';
 import { parseAmount, centsToInput, todayISO, formatMoney, formatDate, formatKm, normalizeText } from '../format.js';
 import { prepareReceipt } from '../image.js';
@@ -253,6 +255,8 @@ export function openBookingForm(existing = null) {
       receiptRow,
       fileInput,
 
+      invoiceSection(),
+
       errorBox,
 
       h('div', { class: 'form-actions' },
@@ -260,6 +264,31 @@ export function openBookingForm(existing = null) {
         isEdit ? h('button', { type: 'button', class: 'btn-text danger', onclick: remove }, 'Buchung löschen') : null)));
 
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'sheet-title' }, form);
+
+  /** Rechnung/Quittung zur gespeicherten Einnahme */
+  function invoiceSection() {
+    if (!isEdit || existing.type !== 'income') return null;
+    const inv = recordById('invoices', existing.invoiceId);
+    if (inv && !inv.cancelled) {
+      const status = invoiceStatus(inv);
+      return h('div', null,
+        h('div', { class: 'lbl' }, 'Rechnung'),
+        h('button', { type: 'button', class: 'row nav-row inv-link', onclick: () => openInvoiceDetail(inv) },
+          icon('receipt', 20),
+          h('span', { class: 'nav-label' }, `${KIND_LABEL[inv.kind]} ${inv.number}`),
+          h('span', { class: `status status-${status}` }, STATUS_LABEL[status]),
+          h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›')));
+    }
+    const start = (kind) => {
+      if (st.dirty) { showError('Bitte zuerst speichern, dann die Rechnung erstellen.'); return; }
+      openInvoiceEditor({ kind, booking: existing, onCreated: () => close() });
+    };
+    return h('div', null,
+      h('div', { class: 'lbl' }, 'Rechnung (optional)'),
+      h('div', { class: 'btn-pair', style: 'margin-top: 0' },
+        h('button', { type: 'button', class: 'btn btn-small', onclick: () => start('invoice') }, 'Rechnung erstellen'),
+        h('button', { type: 'button', class: 'btn btn-small', onclick: () => start('receipt') }, 'Quittung erstellen')));
+  }
 
   // ---------- Anzeige aktualisieren ----------
 
@@ -706,14 +735,17 @@ export function openBookingForm(existing = null) {
 
   async function remove() {
     const label = existing.description || categoryById(existing.categoryId)?.name || 'Buchung';
+    const inv = recordById('invoices', existing.invoiceId);
+    const invText = inv && !inv.cancelled ? ` ${KIND_LABEL[inv.kind]} ${inv.number} wird dabei storniert (die Nummer bleibt vergeben).` : '';
     const ok = await confirmDialog({
       title: 'Buchung löschen?',
-      text: `„${label}“ vom ${formatDate(existing.date)} über ${formatMoney(existing.amountCents)} wird gelöscht. Das lässt sich nicht rückgängig machen.`,
+      text: `„${label}“ vom ${formatDate(existing.date)} über ${formatMoney(existing.amountCents)} wird gelöscht. Das lässt sich nicht rückgängig machen.${invText}`,
       confirmLabel: 'Löschen',
       danger: true,
     });
     if (!ok) return;
     try {
+      if (inv && !inv.cancelled) await cancelInvoice(inv);
       await deleteBooking(existing.id);
       close();
       toast('Buchung gelöscht');

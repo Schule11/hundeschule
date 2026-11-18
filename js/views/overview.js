@@ -6,6 +6,9 @@ import { state, sumBookings, bookingYears, updateLocal, openBookings, sumOpen, i
 import { formatMoney } from '../format.js';
 import { showBookings } from './bookings.js';
 import { smallBusinessStatus, backupDue, snoozeUntil } from '../notices.js';
+import { openContactList } from './contacts.js';
+import { openInvoiceList } from './invoices.js';
+import { invoiceStatus } from '../invoices.js';
 import { doExport } from './settings.js';
 import { MONTHS, todayISO } from '../format.js';
 import { bookingRow, pageHeader } from './components.js';
@@ -65,6 +68,7 @@ export function render(root) {
         kpiRow('Gewinn', 'profit', profit(monthSums.profit), profit(yearSums.profit), 'kpi-total')),
       big ? h('p', { class: 'kpi-note' }, 'Auf volle Euro gerundet – genaue Beträge in der Auswertung.') : null),
 
+    tiles(),
     receiptHint(curYear),
     openPayments(),
     limitNotices(),
@@ -102,6 +106,18 @@ window.addEventListener('resize', () => fitKpi(document.querySelector('.kpi-grid
 function rerender(root) {
   root.replaceChildren();
   render(root);
+}
+
+/** Kacheln zu den Bereichen Kund:innen, Rechnungen (später auch Kurse, Gutscheine, 10er-Karten) */
+function tiles() {
+  const openInvoices = state.invoices.filter((i) => invoiceStatus(i) === 'open').length;
+  const tile = (id, title, value, iconName, onClick) => h('button', { type: 'button', class: 'tile', id, onclick: onClick },
+    h('span', { class: 'tile-icon' }, icon(iconName, 24)),
+    h('span', { class: 'tile-title' }, title),
+    h('span', { class: 'tile-value' }, value));
+  return h('div', { class: 'tiles' },
+    tile('tile-contacts', 'Kund:innen', `${state.contacts.length} gespeichert`, 'people', () => openContactList()),
+    tile('tile-invoices', 'Rechnungen', openInvoices ? `${openInvoices} offen` : `${state.invoices.length} erstellt`, 'doc', () => openInvoiceList()));
 }
 
 /** Dezente Zeile: Ausgaben dieses Jahres, zu denen noch ein Beleg fehlt */
